@@ -87,6 +87,25 @@ def heatmap_chart(
     return apply_standard_layout(fig, height=max(250, len(df) * 40 + 80))
 
 
+def horizontal_bar_chart(
+    df: pd.DataFrame,
+    x: str,
+    y: str,
+    title: str = "",
+    color: str = "#2D6A4F",
+    text_col: str | None = None,
+) -> go.Figure:
+    fig = px.bar(
+        df, x=x, y=y, title=title, orientation="h",
+        color_discrete_sequence=[color],
+        text=text_col,
+    )
+    if text_col:
+        fig.update_traces(textposition="outside")
+    fig.update_layout(yaxis=dict(autorange="reversed"))
+    return apply_standard_layout(fig, height=max(300, len(df) * 32 + 80))
+
+
 def pie_chart(
     df: pd.DataFrame,
     values_col: str,

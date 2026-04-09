@@ -571,3 +571,160 @@ def calculate_cohort_summary(
         "best_webinar_rate": best_webinar["conversion_rate"] if best_webinar is not None else 0.0,
         "avg_webinar_conv": avg_conv,
     }
+
+
+# ---------------------------------------------------------------------------
+# Ad Spend & ROI
+# ---------------------------------------------------------------------------
+
+def calculate_ad_overview(meta: pd.DataFrame) -> dict:
+    """Overall ad spend summary stats."""
+    total_spend = float(meta["amount_spent"].sum())
+    total_results = float(meta["results"].sum())
+    total_clicks = float(meta["link_clicks"].sum())
+    total_impressions = float(meta["impressions"].sum())
+    total_reach = float(meta["reach"].sum())
+
+    cpl = round(total_spend / total_results, 2) if total_results else 0.0
+    cpc = round(total_spend / total_clicks, 2) if total_clicks else 0.0
+    ctr = round(total_clicks / total_impressions * 100, 2) if total_impressions else 0.0
+
+    return {
+        "total_spend": total_spend,
+        "total_results": int(total_results),
+        "total_clicks": int(total_clicks),
+        "total_impressions": int(total_impressions),
+        "total_reach": int(total_reach),
+        "cpl": cpl,
+        "cpc": cpc,
+        "ctr": ctr,
+    }
+
+
+def calculate_ad_performance(meta: pd.DataFrame) -> pd.DataFrame:
+    """Per-ad performance metrics. Only includes ads with spend > 0."""
+    active = meta[meta["amount_spent"] > 0].copy()
+    active["cpl"] = active.apply(
+        lambda r: round(r["amount_spent"] / r["results"], 2)
+        if pd.notna(r["results"]) and r["results"] > 0 else None,
+        axis=1,
+    )
+    active["cpc"] = active.apply(
+        lambda r: round(r["amount_spent"] / r["link_clicks"], 2)
+        if pd.notna(r["link_clicks"]) and r["link_clicks"] > 0 else None,
+        axis=1,
+    )
+    active["ctr"] = active.apply(
+        lambda r: round(r["link_clicks"] / r["impressions"] * 100, 2)
+        if pd.notna(r["impressions"]) and r["impressions"] > 0 else None,
+        axis=1,
+    )
+    active["creative_type"] = active["ad_name"].apply(
+        lambda n: "Video" if "Video" in n else ("Image" if "Image" in n else "Other")
+    )
+    return active.sort_values("amount_spent", ascending=False).reset_index(drop=True)
+
+
+def calculate_creative_comparison(meta: pd.DataFrame) -> pd.DataFrame:
+    """Compare Video vs Image ad performance."""
+    active = meta[meta["amount_spent"] > 0].copy()
+    active["creative_type"] = active["ad_name"].apply(
+        lambda n: "Video" if "Video" in n else ("Image" if "Image" in n else "Other")
+    )
+    grouped = active.groupby("creative_type").agg(
+        ads=("ad_name", "count"),
+        spend=("amount_spent", "sum"),
+        results=("results", "sum"),
+        clicks=("link_clicks", "sum"),
+        impressions=("impressions", "sum"),
+    ).reset_index()
+    grouped["cpl"] = grouped.apply(
+        lambda r: round(r["spend"] / r["results"], 2) if r["results"] > 0 else 0.0, axis=1
+    )
+    grouped["ctr"] = grouped.apply(
+        lambda r: round(r["clicks"] / r["impressions"] * 100, 2) if r["impressions"] > 0 else 0.0, axis=1
+    )
+    return grouped
+
+
+def calculate_ad_quality(meta: pd.DataFrame) -> dict:
+    """Distribution of quality, engagement, and conversion rankings."""
+    active = meta[(meta["amount_spent"] > 0) & (meta["quality_ranking"] != "-")]
+    result = {}
+    for col in ["quality_ranking", "engagement_ranking", "conversion_ranking"]:
+        counts = active[col].value_counts().reset_index()
+        counts.columns = ["ranking", "count"]
+        result[col] = counts
+    return result
+
+
+def calculate_ad_roi(
+    meta: pd.DataFrame,
+    leads: pd.DataFrame,
+    purchases: pd.DataFrame,
+    config: dict,
+) -> dict:
+    """Calculate ROI by linking ads → leads (via utm_content) → purchases."""
+    total_spend = float(meta["amount_spent"].sum())
+    total_revenue = float(purchases["amount"].sum())
+    roas = round(total_revenue / total_spend, 2) if total_spend else 0.0
+
+    # Track leads attributable to ads via utm_content
+    ad_names = set(meta["ad_name"].dropna())
+    attributed_leads = leads[leads["utm_content"].isin(ad_names)]
+    attributed_count = len(attributed_leads)
+
+    # Match attributed leads to purchases
+    purchase_emails = set(purchases["norm_email"].dropna())
+    purchase_phones = set(purchases["norm_phone"].dropna())
+    attributed_converted = attributed_leads[
+        attributed_leads["norm_email"].isin(purchase_emails)
+        | attributed_leads["norm_phone"].isin(purchase_phones)
+    ]
+    attributed_buyers = len(attributed_converted)
+
+    # Revenue from attributed buyers
+    attributed_revenue = 0.0
+    purchase_by_phone: dict[str, float] = {}
+    purchase_by_email: dict[str, float] = {}
+    for _, row in purchases.iterrows():
+        amt = row["amount"] if pd.notna(row["amount"]) else 0.0
+        if pd.notna(row.get("norm_phone")):
+            purchase_by_phone[row["norm_phone"]] = amt
+        if pd.notna(row.get("norm_email")):
+            purchase_by_email[row["norm_email"]] = amt
+
+    seen = set()
+    for _, lead in attributed_converted.iterrows():
+        key = lead.get("norm_phone") or lead.get("norm_email")
+        if key in seen:
+            continue
+        seen.add(key)
+        if pd.notna(lead.get("norm_phone")) and lead["norm_phone"] in purchase_by_phone:
+            attributed_revenue += purchase_by_phone[lead["norm_phone"]]
+        elif pd.notna(lead.get("norm_email")) and lead["norm_email"] in purchase_by_email:
+            attributed_revenue += purchase_by_email[lead["norm_email"]]
+
+    attributed_roas = round(attributed_revenue / total_spend, 2) if total_spend else 0.0
+    course_fee = config.get("course_fee_full", 0)
+    breakeven_leads = int(total_spend / course_fee) + 1 if course_fee else 0
+
+    return {
+        "total_spend": total_spend,
+        "total_revenue": total_revenue,
+        "roas": roas,
+        "attributed_leads": attributed_count,
+        "attributed_buyers": attributed_buyers,
+        "attributed_revenue": attributed_revenue,
+        "attributed_roas": attributed_roas,
+        "utm_tracking_pct": round(attributed_count / len(leads) * 100, 1) if len(leads) else 0.0,
+        "breakeven_sales": breakeven_leads,
+        "actual_sales": len(purchases),
+    }
+
+
+def get_top_ads(meta: pd.DataFrame, n: int = 5, by: str = "results") -> pd.DataFrame:
+    """Top N ads by a given metric."""
+    active = meta[(meta["amount_spent"] > 0) & (meta["results"] > 0)].copy()
+    active["cpl"] = (active["amount_spent"] / active["results"]).round(2)
+    return active.nlargest(n, by)[["ad_name", "amount_spent", "results", "cpl"]].reset_index(drop=True)
