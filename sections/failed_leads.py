@@ -8,6 +8,7 @@ from utils.metrics import (
     calculate_objection_summary,
     classify_recoverability,
 )
+from utils.ai import render_ai_insights
 from utils.styles import alert, metric_card, section_header
 
 
@@ -148,3 +149,21 @@ def render(data: dict):
         )
     else:
         st.info("No recoverable leads identified.")
+
+    # ── AI Insights ──────────────────────────────────────────────
+    breakdown_text = "\n".join(
+        f"  {row['category']}: {row['count']} ({row['pct']}%)"
+        for _, row in breakdown.iterrows()
+    )
+    profile = calculate_child_profile(objections)
+    age_text = profile["age_distribution"].to_string(index=False) if len(profile["age_distribution"]) else "N/A"
+    context = (
+        f"Total failed leads: {summary['total']}\n"
+        f"Top objection: {summary['top_category']} ({summary['top_category_pct']}%)\n"
+        f"Recoverable: {summary['recoverable_count']} ({summary['recoverable_pct']}%)\n"
+        f"Webinar batches: {summary['webinar_batches']}\n"
+        f"Objection breakdown:\n{breakdown_text}\n"
+        f"Child age distribution:\n{age_text}\n"
+        f"Top child issues: {profile['top_issues'].to_string(index=False) if len(profile['top_issues']) else 'N/A'}"
+    )
+    render_ai_insights("failed_leads", context)

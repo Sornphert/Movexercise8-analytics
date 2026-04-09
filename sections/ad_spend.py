@@ -11,6 +11,7 @@ from utils.metrics import (
     calculate_creative_comparison,
     get_top_ads,
 )
+from utils.ai import render_ai_insights
 from utils.styles import alert, metric_card, section_header
 
 
@@ -182,3 +183,16 @@ def render(data: dict) -> None:
             ),
             unsafe_allow_html=True,
         )
+
+    # ── AI Insights ──────────────────────────────────────────────
+    creative_text = creative[["creative_type", "ads", "spend", "results", "cpl", "ctr"]].to_string(index=False)
+    context = (
+        f"Total ad spend: RM {overview['total_spend']:,.0f}\n"
+        f"Leads generated: {overview['total_results']:,}, CPL: RM {overview['cpl']:.2f}\n"
+        f"CTR: {overview['ctr']}%, CPC: RM {overview['cpc']:.2f}\n"
+        f"ROAS: {roi['roas']}x (RM {roi['total_revenue']:,.0f} revenue / RM {roi['total_spend']:,.0f} spend)\n"
+        f"UTM tracking: {roi['utm_tracking_pct']}% of leads\n"
+        f"Break-even: {roi['breakeven_sales']} sales needed, actual: {roi['actual_sales']}\n"
+        f"Creative comparison:\n{creative_text}"
+    )
+    render_ai_insights("ad_spend", context)

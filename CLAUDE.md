@@ -46,6 +46,6 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - [done] Phase 2a: Failed Leads (objection breakdown, recoverability, audience profile)
 - [done] Phase 2b: Cohort Analysis (monthly cohorts, webinar cohort comparison, funnel heatmap)
 - [done] Phase 3: Ad Spend & ROI (spend overview, creative comparison, top ads, quality rankings, ROI analysis)
-- [ ] Phase 4: AI suggestions per section, AI chatbot tab
+- [done] Phase 4: AI suggestions per section (Gemini 2.5 Flash), AI chatbot tab
 
 Update this checklist as features get added.

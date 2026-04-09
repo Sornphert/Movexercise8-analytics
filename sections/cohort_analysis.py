@@ -7,6 +7,7 @@ from utils.metrics import (
     build_webinar_cohorts,
     calculate_cohort_summary,
 )
+from utils.ai import render_ai_insights
 from utils.styles import alert, metric_card, section_header
 
 
@@ -177,3 +178,15 @@ def render(data: dict):
                 )
     else:
         st.info("Need at least 2 webinars to show trend.")
+
+    # ── AI Insights ──────────────────────────────────────────────
+    monthly_text = monthly[["month", "leads", "buyers", "conversion_rate", "revenue"]].to_string(index=False)
+    webinar_text = webinar[["webinar_date", "attendees", "buyers", "conversion_rate", "offer_conversion_rate", "retention"]].to_string(index=False)
+    context = (
+        f"Best month: {summary['best_month']} ({summary['best_month_rate']}% conversion)\n"
+        f"Worst month: {summary['worst_month']} ({summary['worst_month_rate']}% conversion)\n"
+        f"Avg webinar conversion: {summary['avg_webinar_conv']}%\n"
+        f"Monthly cohorts:\n{monthly_text}\n\n"
+        f"Webinar cohorts:\n{webinar_text}"
+    )
+    render_ai_insights("cohort_analysis", context)

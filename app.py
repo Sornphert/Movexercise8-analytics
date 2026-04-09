@@ -1,13 +1,13 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="MOVEXERCISE8 Analytics",
+    page_title="Movexercise8 Analytics",
     page_icon="🌿",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-from sections import ad_spend, cohort_analysis, failed_leads, lead_pipeline, overview, sales_revenue, webinar_performance
+from sections import ad_spend, ai_chat, cohort_analysis, failed_leads, lead_pipeline, overview, sales_revenue, webinar_performance
 from utils.data_loader import load_all
 from utils.styles import inject_css
 
@@ -31,10 +31,21 @@ with st.sidebar:
     st.caption(f"**{len(data['meta'])}** ad rows")
     st.caption(f"**{len(data['objections'])}** objections")
 
+    st.divider()
+    st.header("AI Settings")
+    api_key = st.text_input(
+        "Gemini API Key",
+        type="password",
+        value=st.session_state.get("gemini_api_key", ""),
+        help="Free key from aistudio.google.com",
+    )
+    if api_key:
+        st.session_state["gemini_api_key"] = api_key
+
 # ── Tabs ──────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
     ["Overview", "Sales & Revenue", "Lead Pipeline", "Webinar Performance",
-     "Failed Leads", "Cohort Analysis", "Ad Spend & ROI"]
+     "Failed Leads", "Cohort Analysis", "Ad Spend & ROI", "AI Assistant"]
 )
 
 with tab1:
@@ -51,3 +62,5 @@ with tab6:
     cohort_analysis.render(data)
 with tab7:
     ad_spend.render(data)
+with tab8:
+    ai_chat.render(data)

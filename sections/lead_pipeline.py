@@ -6,6 +6,7 @@ from utils.metrics import (
     calculate_funnel_stages,
     calculate_lead_to_sale_times,
 )
+from utils.ai import render_ai_insights
 from utils.styles import metric_card, section_header
 
 
@@ -140,3 +141,22 @@ def render(data: dict):
                    f"Median: {sorted(day_diffs)[len(day_diffs)//2]} days.")
     else:
         st.info("No matched lead-to-sale data available.")
+
+    # ── AI Insights ──────────────────────────────────────────────
+    stage_text = " -> ".join(f"{s[0]}: {s[1]:,}" for s in stages)
+    conv_rates = []
+    for i in range(len(stages) - 1):
+        prev_val = stages[i][1]
+        curr_val = stages[i + 1][1]
+        rate = round(curr_val / prev_val * 100, 1) if prev_val else 0.0
+        conv_rates.append(f"{stages[i][0]}->{stages[i+1][0]}: {rate}%")
+    median_days = sorted(day_diffs)[len(day_diffs) // 2] if day_diffs else "N/A"
+    context = (
+        f"Funnel: {stage_text}\n"
+        f"Stage conversion rates: {', '.join(conv_rates)}\n"
+        f"This month leads: {this_m[0]:,}, buyers: {this_m[1]}, conv: {this_m[3]}%\n"
+        f"Last month leads: {last_m[0]:,}, buyers: {last_m[1]}, conv: {last_m[3]}%\n"
+        f"Lead sources: {src.head(5).to_string(index=False)}\n"
+        f"Lead-to-sale median: {median_days} days ({len(day_diffs)} matched pairs)"
+    )
+    render_ai_insights("lead_pipeline", context)

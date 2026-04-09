@@ -12,6 +12,7 @@ from utils.metrics import (
     calculate_webinar_summary,
     find_best_worst_webinars,
 )
+from utils.ai import render_ai_insights
 from utils.styles import alert, metric_card, section_header
 
 
@@ -233,3 +234,25 @@ def render(data: dict):
             st.info("No participant data available for the latest webinar.")
     else:
         st.info("Could not locate participant data for the latest webinar.")
+
+    # ── AI Insights ──────────────────────────────────────────────
+    event_lines = "\n".join(
+        f"  {e['label']}: {e['day1_attendees']} D1, {e['day2_attendees']} D2, "
+        f"avg {e['avg_duration']:.0f}min, {e['stayed_120plus_pct']:.1f}% stayed 120+, "
+        f"retention {e['retention']:.1f}%, {e['at_offer']} at offer, "
+        f"{e['waiting_bounced']} bounced"
+        for e in events
+    )
+    trend_text = ""
+    if trend:
+        trend_text = (
+            f"\nEngagement trend: {trend['previous_avg']:.0f}min -> {trend['recent_avg']:.0f}min "
+            f"({trend['change_pct']:+.1f}%)"
+        )
+    context = (
+        f"Webinar sessions:\n{event_lines}\n"
+        f"Best: {best['label']} (avg {best['avg_duration']:.0f}min)\n"
+        f"Worst: {worst['label']} (avg {worst['avg_duration']:.0f}min)"
+        f"{trend_text}"
+    )
+    render_ai_insights("webinar_performance", context)

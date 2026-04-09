@@ -9,13 +9,13 @@ from utils.metrics import (
     get_payment_completion_by_status,
     get_top_customers,
 )
+from utils.ai import render_ai_insights
 from utils.styles import metric_card, section_header
 
 
 def render(data: dict):
     purchases = data["purchases"]
     rev = calculate_revenue_metrics(purchases)
-
     # ── Hero cards ────────────────────────────────────────────────
     st.markdown(section_header("Sales & Revenue"), unsafe_allow_html=True)
 
@@ -115,3 +115,20 @@ def render(data: dict):
         bar_chart(monthly, "month", "revenue", text_col="label"),
         use_container_width=True,
     )
+
+    # ── AI Insights ──────────────────────────────────────────────
+    completion_lines = "\n".join(
+        f"  {r['status']}: {r['complete']}/{r['total']} ({r['pct']}%)"
+        for r in get_payment_completion_by_status(purchases)
+    )
+    context = (
+        f"Revenue: RM {rev['total_revenue']:,.0f} total, "
+        f"RM {rev['collected_revenue']:,.0f} collected, "
+        f"RM {rev['outstanding_revenue']:,.0f} outstanding\n"
+        f"Transactions: {rev['total_transactions']}, avg RM {rev['avg_per_buyer']:,.0f} per buyer\n"
+        f"Revenue by status: {rev['revenue_by_status']}\n"
+        f"Revenue by method: {rev['revenue_by_method']}\n"
+        f"Payment completion by status:\n{completion_lines}\n"
+        f"Outstanding payments: {len(outstanding)} buyers"
+    )
+    render_ai_insights("sales_revenue", context)

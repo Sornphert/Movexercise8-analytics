@@ -8,6 +8,7 @@ from utils.metrics import (
     calculate_revenue_metrics,
     calculate_webinar_summary,
 )
+from utils.ai import render_ai_insights
 from utils.styles import alert, metric_card, section_header
 
 
@@ -159,3 +160,22 @@ def render(data: dict):
     daily = leads.groupby(leads["date"].dt.date).size().reset_index(name="count")
     daily.columns = ["date", "count"]
     st.plotly_chart(bar_chart(daily, "date", "count"), use_container_width=True)
+
+    # ── AI Insights ──────────────────────────────────────────────
+    latest_label = events[-1]["label"] if events else "N/A"
+    latest_att = events[-1]["day1_attendees"] if events else 0
+    latest_dur = events[-1]["avg_duration"] if events else 0
+    context = (
+        f"Funnel: {funnel['total_leads']:,} leads -> {funnel['total_buyers']} buyers "
+        f"({funnel['conversion_rate']}% conversion)\n"
+        f"Payment completion: {funnel['payment_complete_count']}/{funnel['total_buyers']} "
+        f"({funnel['payment_completion_rate']}%)\n"
+        f"Revenue: RM {revenue['total_revenue']:,.0f} total, "
+        f"RM {revenue['collected_revenue']:,.0f} collected, "
+        f"RM {revenue['outstanding_revenue']:,.0f} outstanding\n"
+        f"Avg per buyer: RM {revenue['avg_per_buyer']:,.0f}\n"
+        f"Latest webinar ({latest_label}): {latest_att} attendees, avg {latest_dur:.0f} min\n"
+        f"Leads this week: {leads_delta['current_count']} ({leads_delta['change_pct']:+.1f}% vs prior)\n"
+        f"Buyers this week: {buyers_delta['current_count']} ({buyers_delta['change_pct']:+.1f}% vs prior)"
+    )
+    render_ai_insights("overview", context)
