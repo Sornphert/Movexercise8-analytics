@@ -289,3 +289,108 @@ def get_outstanding_payments(purchases: pd.DataFrame) -> pd.DataFrame:
         .sort_values("amount", ascending=False)
         .reset_index(drop=True)
     )
+
+
+# ---------------------------------------------------------------------------
+# Failed Leads / Objections
+# ---------------------------------------------------------------------------
+
+RECOVERABLE_CATEGORIES = {"Still Considering", "Not Ready / Timing", "Spouse Buy-in"}
+POSSIBLY_RECOVERABLE_KEYWORDS = ["deposit", "future", "high intent", "will come back",
+                                  "still engaging", "pending", "reserved"]
+UNLIKELY_CATEGORIES = {"Went Silent", "Skepticism", "Prefers Physical", "Other"}
+
+
+def calculate_objection_breakdown(objections: pd.DataFrame) -> pd.DataFrame:
+    counts = objections["category"].value_counts().reset_index()
+    counts.columns = ["category", "count"]
+    total = counts["count"].sum()
+    counts["pct"] = (counts["count"] / total * 100).round(1)
+    return counts
+
+
+def calculate_objection_by_webinar(objections: pd.DataFrame) -> pd.DataFrame:
+    ct = pd.crosstab(objections["webinar_date"], objections["category"])
+    # Melt into long format for grouped bar chart
+    ct = ct.reset_index().melt(id_vars="webinar_date", var_name="category", value_name="count")
+    return ct[ct["count"] > 0].reset_index(drop=True)
+
+
+def classify_recoverability(objections: pd.DataFrame) -> pd.DataFrame:
+    df = objections.copy()
+
+    def _classify(row):
+        cat = row.get("category", "")
+        notes = str(row.get("notes", "")).lower()
+        if cat in RECOVERABLE_CATEGORIES:
+            return "Recoverable"
+        if cat == "Financial Constraint":
+            if any(kw in notes for kw in POSSIBLY_RECOVERABLE_KEYWORDS):
+                return "Possibly Recoverable"
+            return "Unlikely"
+        return "Unlikely"
+
+    df["recoverable"] = df.apply(_classify, axis=1)
+    return df
+
+
+def calculate_child_profile(objections: pd.DataFrame) -> dict:
+    # Age distribution — bucket into ranges
+    ages = objections["child_age"].dropna()
+    if len(ages):
+        def _age_bucket(a):
+            if a <= 3:
+                return "0–3"
+            if a <= 6:
+                return "4–6"
+            if a <= 9:
+                return "7–9"
+            if a <= 12:
+                return "10–12"
+            return "13+"
+
+        bucket_order = ["0–3", "4–6", "7–9", "10–12", "13+"]
+        buckets = ages.apply(_age_bucket).value_counts().reindex(bucket_order, fill_value=0)
+        age_df = buckets.reset_index()
+        age_df.columns = ["age_group", "count"]
+    else:
+        age_df = pd.DataFrame(columns=["age_group", "count"])
+
+    # Top child issues — split comma-separated values and count
+    issues = objections["child_issue"].dropna()
+    issue_counts: dict[str, int] = {}
+    for val in issues:
+        for part in str(val).split(","):
+            part = part.strip()
+            if part and not part.lower().startswith("not stated"):
+                issue_counts[part] = issue_counts.get(part, 0) + 1
+    issue_df = (
+        pd.DataFrame(list(issue_counts.items()), columns=["issue", "count"])
+        .sort_values("count", ascending=False)
+        .head(10)
+        .reset_index(drop=True)
+    )
+
+    return {"age_distribution": age_df, "top_issues": issue_df}
+
+
+def calculate_objection_summary(objections: pd.DataFrame) -> dict:
+    total = len(objections)
+    breakdown = calculate_objection_breakdown(objections)
+    top_cat = breakdown.iloc[0]["category"] if len(breakdown) else "N/A"
+    top_pct = breakdown.iloc[0]["pct"] if len(breakdown) else 0.0
+
+    classified = classify_recoverability(objections)
+    recoverable = int((classified["recoverable"] != "Unlikely").sum())
+    recoverable_pct = round(recoverable / total * 100, 1) if total else 0.0
+
+    webinar_batches = objections["webinar_date"].nunique()
+
+    return {
+        "total": total,
+        "top_category": top_cat,
+        "top_category_pct": top_pct,
+        "recoverable_count": recoverable,
+        "recoverable_pct": recoverable_pct,
+        "webinar_batches": webinar_batches,
+    }

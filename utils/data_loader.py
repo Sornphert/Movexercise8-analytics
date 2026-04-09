@@ -90,7 +90,28 @@ def load_meta_ads() -> pd.DataFrame:
 
 @st.cache_data
 def load_objections() -> pd.DataFrame:
-    return pd.read_csv(DATA_DIR / "objections.csv")
+    df = pd.read_csv(DATA_DIR / "objections.csv")
+
+    # Name field has phone embedded with newline (e.g. "Logavani\n+60 14-773 5680")
+    clean_names = []
+    extracted_phones = []
+    for raw in df["name"]:
+        if pd.isna(raw):
+            clean_names.append(raw)
+            extracted_phones.append(None)
+            continue
+        parts = str(raw).split("\n")
+        clean_names.append(parts[0].strip())
+        phone_part = parts[1].strip() if len(parts) > 1 else None
+        extracted_phones.append(phone_part)
+    df["name"] = clean_names
+    df["phone"] = extracted_phones
+    df["norm_phone"] = df["phone"].apply(normalize_phone)
+
+    # Parse child_age as numeric ("N/S" and blanks become NaN)
+    df["child_age"] = pd.to_numeric(df["child_age"], errors="coerce")
+
+    return df
 
 
 @st.cache_data
