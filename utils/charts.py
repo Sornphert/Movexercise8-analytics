@@ -66,6 +66,27 @@ def line_chart(
     return apply_standard_layout(fig)
 
 
+def heatmap_chart(
+    df: pd.DataFrame,
+    x_cols: list[str],
+    y_col: str,
+    title: str = "",
+    color_scale: str = "Greens",
+) -> go.Figure:
+    z = df[x_cols].values
+    fig = go.Figure(go.Heatmap(
+        z=z,
+        x=x_cols,
+        y=df[y_col].tolist(),
+        text=[[f"{v:.1f}%" for v in row] for row in z],
+        texttemplate="%{text}",
+        colorscale=color_scale,
+        showscale=False,
+    ))
+    fig.update_layout(title_text=title, yaxis_autorange="reversed")
+    return apply_standard_layout(fig, height=max(250, len(df) * 40 + 80))
+
+
 def pie_chart(
     df: pd.DataFrame,
     values_col: str,

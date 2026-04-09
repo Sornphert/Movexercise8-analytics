@@ -44,7 +44,7 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 ## What's built
 - [done] Phase 1: Overview, Sales & Revenue, Lead Pipeline, Webinar Performance
 - [done] Phase 2a: Failed Leads (objection breakdown, recoverability, audience profile)
-- [ ] Phase 2b: Cohort Analysis
+- [done] Phase 2b: Cohort Analysis (monthly cohorts, webinar cohort comparison, funnel heatmap)
 - [ ] Phase 3: Ad Spend, Ad ROI
 - [ ] Phase 4: AI suggestions per section, AI chatbot tab
 

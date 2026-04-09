@@ -394,3 +394,180 @@ def calculate_objection_summary(objections: pd.DataFrame) -> dict:
         "recoverable_pct": recoverable_pct,
         "webinar_batches": webinar_batches,
     }
+
+
+# ---------------------------------------------------------------------------
+# Cohort Analysis
+# ---------------------------------------------------------------------------
+
+def build_monthly_cohorts(
+    leads: pd.DataFrame, purchases: pd.DataFrame,
+) -> pd.DataFrame:
+    """Group leads by registration month, track conversions and revenue."""
+    leads_c = leads.copy()
+    leads_c["month"] = leads_c["date"].dt.to_period("M").astype(str)
+
+    purchase_emails = set(purchases["norm_email"].dropna())
+    purchase_phones = set(purchases["norm_phone"].dropna())
+
+    # Build purchase lookup by email/phone → amount, payment_complete
+    purchase_by_email: dict[str, dict] = {}
+    purchase_by_phone: dict[str, dict] = {}
+    for _, row in purchases.iterrows():
+        amt = row["amount"] if pd.notna(row["amount"]) else 0.0
+        info = {"amount": amt, "paid": row["payment_complete"]}
+        if pd.notna(row.get("norm_email")):
+            purchase_by_email[row["norm_email"]] = info
+        if pd.notna(row.get("norm_phone")):
+            purchase_by_phone[row["norm_phone"]] = info
+
+    rows = []
+    for month, grp in leads_c.groupby("month"):
+        total = len(grp)
+        converted = grp["converted"].sum()
+        # Calculate revenue for this cohort
+        revenue = 0.0
+        paid_count = 0
+        for _, lead in grp[grp["converted"]].iterrows():
+            info = None
+            if pd.notna(lead.get("norm_phone")) and lead["norm_phone"] in purchase_by_phone:
+                info = purchase_by_phone[lead["norm_phone"]]
+            elif pd.notna(lead.get("norm_email")) and lead["norm_email"] in purchase_by_email:
+                info = purchase_by_email[lead["norm_email"]]
+            if info:
+                revenue += info["amount"]
+                if info["paid"]:
+                    paid_count += 1
+
+        conv_rate = round(converted / total * 100, 1) if total else 0.0
+        rows.append({
+            "month": month,
+            "leads": total,
+            "buyers": int(converted),
+            "paid": paid_count,
+            "conversion_rate": conv_rate,
+            "revenue": revenue,
+        })
+
+    return pd.DataFrame(rows).sort_values("month").reset_index(drop=True)
+
+
+def build_webinar_cohorts(
+    leads: pd.DataFrame,
+    purchases: pd.DataFrame,
+    webinars: dict,
+    objections: pd.DataFrame,
+) -> pd.DataFrame:
+    """Build per-webinar cohort: attendees, buyers matched, objections, conversion."""
+    from utils.metrics import calculate_webinar_summary
+    summaries = calculate_webinar_summary(webinars)
+
+    # Collect attendee emails per webinar (by meeting_id)
+    attendee_emails_by_mid: dict[str, set] = {}
+    for key, w in webinars.items():
+        mid = w["meeting_id"]
+        emails = set(w["participants"]["Email"].dropna().str.strip().str.lower())
+        attendee_emails_by_mid.setdefault(mid, set()).update(emails)
+
+    # Purchase lookup by email
+    purchase_by_email: dict[str, dict] = {}
+    for _, row in purchases.iterrows():
+        if pd.notna(row.get("norm_email")):
+            purchase_by_email[row["norm_email"]] = {
+                "amount": row["amount"],
+                "paid": row["payment_complete"],
+                "status": row["status"],
+            }
+
+    # Map objection webinar_date labels to rough counts
+    obj_counts = objections["webinar_date"].value_counts().to_dict()
+
+    rows = []
+    for s in summaries:
+        mid = s["meeting_id"]
+        attendee_emails = attendee_emails_by_mid.get(mid, set())
+        total_attendees = s["day1_attendees"]
+
+        # Match attendees to purchases
+        buyers = 0
+        revenue = 0.0
+        paid = 0
+        for email in attendee_emails:
+            if email in purchase_by_email:
+                buyers += 1
+                revenue += purchase_by_email[email]["amount"]
+                if purchase_by_email[email]["paid"]:
+                    paid += 1
+
+        # Match objections — fuzzy match on date label
+        obj_count = 0
+        label = s["label"]  # e.g. "2026-01-28"
+        for obj_label, cnt in obj_counts.items():
+            # Check if the webinar date overlaps with the objection label
+            if label[5:7] in obj_label and label[8:10] in obj_label:
+                obj_count += cnt
+
+        conv_rate = round(buyers / total_attendees * 100, 1) if total_attendees else 0.0
+        at_offer = s["at_offer"]
+        offer_conv = round(buyers / at_offer * 100, 1) if at_offer else 0.0
+
+        rows.append({
+            "webinar_date": label,
+            "meeting_id": mid,
+            "attendees": total_attendees,
+            "day2_attendees": s["day2_attendees"],
+            "avg_duration": s["avg_duration"],
+            "stayed_120plus_pct": s["stayed_120plus_pct"],
+            "at_offer": at_offer,
+            "buyers": buyers,
+            "objections": obj_count,
+            "revenue": revenue,
+            "paid": paid,
+            "conversion_rate": conv_rate,
+            "offer_conversion_rate": offer_conv,
+            "retention": s["retention"],
+        })
+
+    return pd.DataFrame(rows).sort_values("webinar_date").reset_index(drop=True)
+
+
+def build_cohort_heatmap(webinar_cohorts: pd.DataFrame) -> pd.DataFrame:
+    """Build a stage-based heatmap: rows = webinars, columns = funnel stages as %."""
+    rows = []
+    for _, r in webinar_cohorts.iterrows():
+        att = r["attendees"] if r["attendees"] else 1
+        rows.append({
+            "webinar": r["webinar_date"],
+            "Attended": 100.0,
+            "Stayed 120+ min": r["stayed_120plus_pct"],
+            "At Offer": round(r["at_offer"] / att * 100, 1),
+            "Bought": r["conversion_rate"],
+            "Paid": round(r["paid"] / att * 100, 1) if att else 0.0,
+        })
+    return pd.DataFrame(rows)
+
+
+def calculate_cohort_summary(
+    monthly: pd.DataFrame, webinar: pd.DataFrame,
+) -> dict:
+    """Summary stats for hero cards."""
+    total_months = len(monthly)
+    total_webinars = len(webinar)
+
+    best_month = monthly.loc[monthly["conversion_rate"].idxmax()] if len(monthly) else None
+    worst_month = monthly.loc[monthly["conversion_rate"].idxmin()] if len(monthly) else None
+
+    best_webinar = webinar.loc[webinar["conversion_rate"].idxmax()] if len(webinar) else None
+    avg_conv = round(webinar["conversion_rate"].mean(), 1) if len(webinar) else 0.0
+
+    return {
+        "total_months": total_months,
+        "total_webinars": total_webinars,
+        "best_month": best_month["month"] if best_month is not None else "N/A",
+        "best_month_rate": best_month["conversion_rate"] if best_month is not None else 0.0,
+        "worst_month": worst_month["month"] if worst_month is not None else "N/A",
+        "worst_month_rate": worst_month["conversion_rate"] if worst_month is not None else 0.0,
+        "best_webinar_date": best_webinar["webinar_date"] if best_webinar is not None else "N/A",
+        "best_webinar_rate": best_webinar["conversion_rate"] if best_webinar is not None else 0.0,
+        "avg_webinar_conv": avg_conv,
+    }

@@ -7,7 +7,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-from sections import failed_leads, lead_pipeline, overview, sales_revenue, webinar_performance
+from sections import cohort_analysis, failed_leads, lead_pipeline, overview, sales_revenue, webinar_performance
 from utils.data_loader import load_all
 from utils.styles import inject_css
 
@@ -32,8 +32,8 @@ with st.sidebar:
     st.caption(f"**{len(data['objections'])}** objections")
 
 # ── Tabs ──────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Overview", "Sales & Revenue", "Lead Pipeline", "Webinar Performance", "Failed Leads"]
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    ["Overview", "Sales & Revenue", "Lead Pipeline", "Webinar Performance", "Failed Leads", "Cohort Analysis"]
 )
 
 with tab1:
@@ -46,3 +46,5 @@ with tab4:
     webinar_performance.render(data)
 with tab5:
     failed_leads.render(data)
+with tab6:
+    cohort_analysis.render(data)
