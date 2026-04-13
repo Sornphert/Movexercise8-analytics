@@ -31,16 +31,13 @@ with st.sidebar:
     st.caption(f"**{len(data['meta'])}** ad rows")
     st.caption(f"**{len(data['objections'])}** objections")
 
-    st.divider()
-    st.header("AI Settings")
-    api_key = st.text_input(
-        "Gemini API Key",
-        type="password",
-        value=st.session_state.get("gemini_api_key", ""),
-        help="Free key from aistudio.google.com",
-    )
-    if api_key:
-        st.session_state["gemini_api_key"] = api_key
+    if st.button("Refresh data"):
+        st.cache_data.clear()
+        st.rerun()
+
+    # Auto-load API key from secrets, allow sidebar override
+    if "gemini_api_key" not in st.session_state:
+        st.session_state["gemini_api_key"] = st.secrets.get("GEMINI_API_KEY", "")
 
 # ── Tabs ──────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(

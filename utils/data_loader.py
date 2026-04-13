@@ -4,13 +4,64 @@ import json
 import re
 from pathlib import Path
 
+import gspread
 import pandas as pd
 import streamlit as st
+from google.oauth2.service_account import Credentials
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 ZOOM_DIR = DATA_DIR / "zoom_participants"
 
 HOST_KEYWORDS = ["Support Team", "Daphnie", "Leon", "John"]
+
+SHEETS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+
+
+def _get_sheets_client() -> gspread.Client | None:
+    """Return an authenticated gspread client, or None if not configured."""
+    try:
+        if "gcp_service_account" not in st.secrets:
+            return None
+    except Exception:
+        return None
+    creds = Credentials.from_service_account_info(
+        dict(st.secrets["gcp_service_account"]),
+        scopes=SHEETS_SCOPES,
+    )
+    return gspread.authorize(creds)
+
+
+def _load_leads_from_sheets() -> pd.DataFrame | None:
+    """Pull leads from Google Sheets. Returns None on any failure."""
+    try:
+        client = _get_sheets_client()
+        if client is None:
+            return None
+        sheet_id = st.secrets["sheets"]["leads_sheet_id"]
+        gid = int(st.secrets["sheets"]["leads_worksheet_gid"])
+        spreadsheet = client.open_by_key(sheet_id)
+        worksheet = next(ws for ws in spreadsheet.worksheets() if ws.id == gid)
+        records = worksheet.get_all_records()
+        df = pd.DataFrame(records)
+
+        # Map sheet headers to the dashboard's expected column names
+        rename_map = {
+            "Date and Time": "date",
+            "Full Name": "name",
+            "Email": "email",
+            "Phone Number": "phone",
+            "UTM Campain": "utm_campaign",  # typo preserved in sheet
+            "UTM Content": "utm_content",
+        }
+        df = df.rename(columns=rename_map)
+
+        # Keep only the columns the dashboard uses
+        keep = ["date", "name", "email", "phone", "utm_campaign", "utm_content"]
+        df = df[[c for c in keep if c in df.columns]]
+        return df
+    except Exception as e:
+        st.warning(f"Google Sheets fetch failed: {e}")
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -60,12 +111,17 @@ def parse_purchase_date(date_str) -> pd.Timestamp:
 # Loaders
 # ---------------------------------------------------------------------------
 
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_leads() -> pd.DataFrame:
-    df = pd.read_csv(DATA_DIR / "leads.csv")
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = _load_leads_from_sheets()
+    if df is None:
+        st.warning("Using cached CSV for leads — Google Sheets unavailable.")
+        df = pd.read_csv(DATA_DIR / "leads.csv")
+
+    # Sheet uses DD/MM/YYYY; CSV uses YYYY-MM-DD. dayfirst=True handles both.
+    df["date"] = pd.to_datetime(df["date"], errors="coerce", dayfirst=True)
     df["norm_phone"] = df["phone"].apply(normalize_phone)
-    df["norm_email"] = df["email"].str.strip().str.lower()
+    df["norm_email"] = df["email"].astype(str).str.strip().str.lower()
     return df
 
 
