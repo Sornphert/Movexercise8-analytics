@@ -52,10 +52,12 @@ def calculate_revenue_metrics(purchases: pd.DataFrame) -> dict:
     }
 
 
-def calculate_webinar_summary(webinars_dict: dict) -> list[dict]:
-    # Group sessions by meeting_id
+def calculate_webinar_summary(webinars_dict: dict, min_attendees: int = 0) -> list[dict]:
+    # Group sessions by meeting_id, dropping tiny sessions (likely personal meetings)
     by_meeting: dict[str, list] = {}
     for key, w in webinars_dict.items():
+        if w["unique_attendees"] < min_attendees:
+            continue
         mid = w["meeting_id"]
         by_meeting.setdefault(mid, []).append(w)
 
@@ -728,3 +730,246 @@ def get_top_ads(meta: pd.DataFrame, n: int = 5, by: str = "results") -> pd.DataF
     active = meta[(meta["amount_spent"] > 0) & (meta["results"] > 0)].copy()
     active["cpl"] = (active["amount_spent"] / active["results"]).round(2)
     return active.nlargest(n, by)[["ad_name", "amount_spent", "results", "cpl"]].reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Webinar diagnostics — per-event deep dives
+# ---------------------------------------------------------------------------
+
+def calculate_exit_histogram(
+    participants_df: pd.DataFrame,
+    bucket_minutes: int = 5,
+) -> pd.DataFrame:
+    """Histogram of leave-times in fixed-width buckets from minute 0."""
+    if participants_df.empty or "leave_min" not in participants_df.columns:
+        return pd.DataFrame(columns=["minute_bucket", "bucket_start", "exits"])
+
+    leaves = participants_df["leave_min"].dropna()
+    if leaves.empty:
+        return pd.DataFrame(columns=["minute_bucket", "bucket_start", "exits"])
+
+    max_min = int(leaves.max()) + bucket_minutes
+    edges = list(range(0, max_min + bucket_minutes, bucket_minutes))
+
+    rows = []
+    for start in edges[:-1]:
+        end = start + bucket_minutes
+        count = int(((leaves >= start) & (leaves < end)).sum())
+        rows.append({
+            "minute_bucket": f"{start}-{end}",
+            "bucket_start": start,
+            "exits": count,
+        })
+    return pd.DataFrame(rows)
+
+
+def calculate_engagement_windows(
+    participants_df: pd.DataFrame,
+    meeting_duration: int,
+) -> list[dict]:
+    """Retention across four fixed diagnostic windows.
+
+    present(t)  = rows where join_min <= t AND leave_min > t.
+    start_count = peak attendance during [start, end] sampled every minute,
+                  so late joiners don't produce >100% retention.
+    end_count   = present(end).
+    """
+    if participants_df.empty:
+        labels = [
+            "First impression (0-30min)",
+            "Content hook (30-90min)",
+            "Offer approach (90-120min)",
+            "Decision window (120-end)",
+        ]
+        return [
+            {"window": lbl, "start_count": 0, "end_count": 0, "retention_pct": 0.0}
+            for lbl in labels
+        ]
+
+    joins = participants_df["join_min"].to_numpy()
+    leaves = participants_df["leave_min"].to_numpy()
+
+    # Effective end = last integer minute where anyone was still present.
+    # Avoids 0% retention on the Decision window when leave_min tops out a hair
+    # below the reported meeting duration.
+    effective_end = int(min(meeting_duration, max(1, int(leaves.max()))))
+    end = max(effective_end, 120)
+    boundaries = [
+        ("First impression (0-30min)", 0, 30),
+        ("Content hook (30-90min)", 30, 90),
+        ("Offer approach (90-120min)", 90, 120),
+        ("Decision window (120-end)", 120, end),
+    ]
+
+    def _present(t: int) -> int:
+        return int(((joins <= t) & (leaves >= t)).sum())
+
+    def _peak(a: int, b: int) -> int:
+        if b <= a:
+            return _present(a)
+        return max(_present(t) for t in range(a, b + 1))
+
+    rows = []
+    for label, start_t, end_t in boundaries:
+        start_count = _peak(start_t, end_t)
+        end_count = _present(end_t)
+        pct = round(end_count / start_count * 100, 1) if start_count else 0.0
+        rows.append({
+            "window": label,
+            "start_count": start_count,
+            "end_count": end_count,
+            "retention_pct": pct,
+        })
+    return rows
+
+
+def _event_sales(
+    purchases_df: pd.DataFrame,
+    day1_date: str,
+    day2_date: str | None,
+) -> pd.DataFrame:
+    """Rows in purchases_df whose inferred_webinar matches day1 or day2."""
+    if purchases_df.empty or "inferred_webinar" not in purchases_df.columns:
+        return purchases_df.iloc[0:0]
+    dates = [d for d in [day1_date, day2_date] if d]
+    return purchases_df[purchases_df["inferred_webinar"].isin(dates)]
+
+
+def calculate_offer_conversion(
+    event_summary: dict,
+    purchases_df: pd.DataFrame,
+    all_events: list[dict],
+    webinars_dict: dict,
+) -> dict:
+    """Offer-moment conversion for one event plus the all-time average."""
+    mid = event_summary["meeting_id"]
+    day1_date, day2_date = get_event_day_dates(webinars_dict, mid)
+    sales = len(_event_sales(purchases_df, day1_date, day2_date))
+    people = int(event_summary.get("at_offer", 0))
+    conv = round(sales / people * 100, 1) if people else 0.0
+
+    others = []
+    for ev in all_events:
+        ev_mid = ev["meeting_id"]
+        ev_d1, ev_d2 = get_event_day_dates(webinars_dict, ev_mid)
+        ev_people = int(ev.get("at_offer", 0))
+        if ev_people <= 0:
+            continue
+        ev_sales = len(_event_sales(purchases_df, ev_d1, ev_d2))
+        others.append(ev_sales / ev_people * 100)
+
+    avg = round(sum(others) / len(others), 1) if others else 0.0
+    return {
+        "people_at_offer": people,
+        "sales": sales,
+        "offer_conversion_pct": conv,
+        "all_time_avg_pct": avg,
+        "above_avg": conv >= avg,
+    }
+
+
+def calculate_webinar_health(
+    event_summary: dict,
+    sales_count: int,
+) -> str:
+    """Traffic-light rating from avg_duration, stayed_120plus_pct, sales."""
+    avg_dur = event_summary.get("avg_duration", 0)
+    stayed = event_summary.get("stayed_120plus_pct", 0)
+
+    if sales_count == 0:
+        return "red"
+
+    failed = 0
+    if avg_dur <= 100:
+        failed += 1
+    if stayed <= 50:
+        failed += 1
+    if sales_count < 3:
+        failed += 1
+
+    if failed == 0:
+        return "green"
+    if failed == 1:
+        return "yellow"
+    return "red"
+
+
+def get_event_day_dates(
+    webinars_dict: dict,
+    meeting_id: str,
+) -> tuple[str | None, str | None]:
+    """Return (day1_date, day2_date) ISO strings for a meeting_id."""
+    sessions = [w for w in webinars_dict.values() if w["meeting_id"] == meeting_id]
+    sessions.sort(key=lambda w: w["date"])
+    d1 = sessions[0]["date"] if sessions else None
+    d2 = sessions[1]["date"] if len(sessions) > 1 else None
+    return d1, d2
+
+
+def get_event_cohorts(
+    webinars_dict: dict,
+    meeting_id: str,
+) -> dict:
+    """Slice the webinars dict to one event with Day 1/Day 2 email sets.
+
+    Emails are lowercased to make comparison with purchases.norm_email safe.
+    """
+    sessions = [w for w in webinars_dict.values() if w["meeting_id"] == meeting_id]
+    sessions.sort(key=lambda w: w["date"])
+    day1 = sessions[0] if sessions else None
+    day2 = sessions[1] if len(sessions) > 1 else None
+
+    def _emails(w: dict | None) -> set[str]:
+        if not w:
+            return set()
+        return set(
+            w["participants"]["Email"].dropna().astype(str).str.strip().str.lower()
+        )
+
+    d1_emails = _emails(day1)
+    d2_emails = _emails(day2)
+    return {
+        "day1": day1,
+        "day2": day2,
+        "day1_emails": d1_emails,
+        "day2_emails": d2_emails,
+        "both_days": d1_emails & d2_emails,
+        "day1_only": d1_emails - d2_emails,
+        "day2_only": d2_emails - d1_emails,
+    }
+
+
+# Month abbreviation lookup for matching objections.webinar_date like "Mar 9-10 2026".
+_MONTH_ABBR = {
+    1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+    7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec",
+}
+
+
+def match_objections_for_event(
+    objections_df: pd.DataFrame,
+    day1_date: str | None,
+    day2_date: str | None,
+) -> pd.DataFrame:
+    """Return objections whose human-written webinar_date matches this event.
+
+    objections.csv uses strings like "Mar 9-10 2026", "Mar 17 2026".
+    Match by constructing canonical forms from the event's ISO dates.
+    """
+    if objections_df.empty or not day1_date:
+        return objections_df.iloc[0:0]
+
+    d1 = pd.Timestamp(day1_date)
+    month = _MONTH_ABBR[d1.month]
+    year = d1.year
+    candidates = {
+        f"{month} {d1.day} {year}",
+    }
+    if day2_date:
+        d2 = pd.Timestamp(day2_date)
+        if d2.month == d1.month and d2.year == d1.year:
+            candidates.add(f"{month} {d1.day}-{d2.day} {year}")
+        candidates.add(f"{_MONTH_ABBR[d2.month]} {d2.day} {year}")
+
+    raw = objections_df["webinar_date"].fillna("").astype(str).str.strip()
+    return objections_df[raw.isin(candidates)]
