@@ -125,7 +125,13 @@ def load_leads() -> pd.DataFrame:
     return df
 
 
-@st.cache_data
+def _is_refund(notes) -> bool:
+    if not isinstance(notes, str):
+        return False
+    return "refund" in notes.lower()
+
+
+@st.cache_data(ttl=300)
 def load_purchases() -> pd.DataFrame:
     df = pd.read_csv(DATA_DIR / "purchases.csv")
     df["date"] = df["date"].apply(parse_purchase_date)
@@ -133,6 +139,7 @@ def load_purchases() -> pd.DataFrame:
     df["payment_complete"] = df["payment_complete"].astype(str).str.strip().str.lower() == "true"
     df["norm_phone"] = df["phone"].apply(normalize_phone)
     df["norm_email"] = df["email"].str.strip().str.lower()
+    df["is_refund"] = df["notes"].apply(_is_refund)
     return df
 
 
@@ -172,6 +179,17 @@ def load_objections() -> pd.DataFrame:
 
 @st.cache_data
 def load_webinars() -> dict:
+    # Scheduled webinar start-of-content time (e.g., "20:00"). The Zoom meeting
+    # room opens earlier (7:30–7:45pm) — we anchor all minute calculations to
+    # the scheduled start so minute 120 = the real offer moment.
+    try:
+        with open(DATA_DIR / "config.json") as _cf:
+            _cfg = json.load(_cf)
+        _sched_hh, _sched_mm = _cfg.get("webinar_scheduled_start", "20:00").split(":")
+        _sched_hh, _sched_mm = int(_sched_hh), int(_sched_mm)
+    except Exception:
+        _sched_hh, _sched_mm = 20, 0
+
     webinars = {}
     for fp in sorted(ZOOM_DIR.glob("participants_*.csv")):
         if "__1_" in fp.name:
@@ -202,6 +220,13 @@ def load_webinars() -> dict:
         duration_col = "Duration (minutes)"
         participants[duration_col] = pd.to_numeric(participants[duration_col], errors="coerce")
 
+        # Drop pre-registered rows that never actually joined (Zoom lists them
+        # with missing Join time or 0 duration). We only count real attendees.
+        if "Join time" in participants.columns:
+            joined_mask = participants["Join time"].notna() & (participants["Join time"].astype(str).str.strip() != "")
+            participants = participants[joined_mask].copy()
+        participants = participants[participants[duration_col].fillna(0) > 0].copy()
+
         waiting_col = "In waiting room"
 
         # Waiting room bounces: joined waiting room but stayed < 5 min total
@@ -227,6 +252,55 @@ def load_webinars() -> dict:
         left_30min = int((grouped["total_minutes"] <= 30).sum())
         left_30min_pct = round(left_30min / unique_attendees * 100, 1) if unique_attendees > 0 else 0
 
+        # Per-session offer minute: 120 min after the SCHEDULED webinar start
+        # (e.g., 8:00pm) but measured relative to the Zoom room's Start time.
+        # The Zoom room typically opens 15–30 min before the scheduled content
+        # start, so the real offer moment is at (scheduled − zoom_start) + 120
+        # minutes on the Zoom-relative timeline.
+        # Zoom CSV "Start time" / "Join time" / "Leave time" are all in UTC.
+        # For relative-minute math we keep UTC (differences are tz-invariant).
+        # For offset vs the scheduled local start (e.g. 8:00 PM MYT), convert to +8.
+        zoom_start_utc = pd.to_datetime(meta["Start time"].iloc[0])
+        zoom_start_local = zoom_start_utc + pd.Timedelta(hours=8)
+        offer_minute = 120
+        try:
+            scheduled_same_day = pd.Timestamp(
+                year=zoom_start_local.year, month=zoom_start_local.month, day=zoom_start_local.day,
+                hour=_sched_hh, minute=_sched_mm,
+            )
+            offset_min = (scheduled_same_day - zoom_start_local).total_seconds() / 60
+            # Clamp to [0, 60] — if zoom_start is AFTER scheduled, treat as 0 offset
+            offer_minute = 120 + max(0, min(60, offset_min))
+        except Exception:
+            offer_minute = 120
+
+        # Present at offer minute: unique emails whose ANY join interval spans it.
+        present_at_offer = 0
+        peak_attendance = 0
+        if unique_attendees > 0 and {"Join time", "Leave time"}.issubset(participants.columns):
+            jt = pd.to_datetime(participants["Join time"], format="%m/%d/%Y %I:%M:%S %p", errors="coerce")
+            lt = pd.to_datetime(participants["Leave time"], format="%m/%d/%Y %I:%M:%S %p", errors="coerce")
+            join_min = (jt - zoom_start_utc).dt.total_seconds() / 60
+            leave_min = (lt - zoom_start_utc).dt.total_seconds() / 60
+            spans_offer = (join_min <= offer_minute) & (leave_min > offer_minute)
+            present_emails = participants.loc[spans_offer, "Email"].dropna().unique()
+            present_at_offer = int(len(present_emails))
+
+            # Peak concurrent attendance across the entire session (unique emails
+            # present at each minute mark).
+            max_mark = int(leave_min.max()) if not leave_min.empty else 0
+            if max_mark > 0:
+                emails_series = participants["Email"].reset_index(drop=True)
+                jm = join_min.reset_index(drop=True)
+                lm = leave_min.reset_index(drop=True)
+                best = 0
+                for t in range(0, max_mark + 1, 5):
+                    mask = (jm <= t) & (lm >= t)
+                    present_n = emails_series[mask].dropna().nunique()
+                    if present_n > best:
+                        best = present_n
+                peak_attendance = int(best)
+
         key = f"{date_str}_{meeting_id}"
         webinars[key] = {
             "meeting_id": meeting_id,
@@ -236,6 +310,9 @@ def load_webinars() -> dict:
             "avg_duration": avg_duration,
             "stayed_120plus_pct": stayed_120plus_pct,
             "left_30min_pct": left_30min_pct,
+            "present_at_offer": present_at_offer,
+            "offer_minute": offer_minute,
+            "peak_attendance": peak_attendance,
             "waiting_room_bounces": waiting_room_bounces,
             "participants": grouped,
         }

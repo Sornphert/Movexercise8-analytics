@@ -13,10 +13,10 @@ date,name,email,phone,amount,status,payment_method,payment_complete,utm_campaign
 13/11/2025,Bee Lan,beelan.liaw@gmail.com,65 9839 4866,2688.0,Confirmed,Stripe,True,,,
 14/11/2025,Tan jin kiat,dan59tan@gmail.com,60 16-868 5498,2688.0,Confirmed,Stripe,True,,,
 19/11/2025,Vivin,vivinchongwk@gmail.com,60 17-242 7323,2688.0,Confirmed,Bank,True,,,
-25/11/2025,Norseha,seha64@gmail.com,60 13-778 7250,2688.0,Confirmed,Bank,False,,, WANT REFUND
+25/11/2025,Norseha,seha64@gmail.com,60 13-778 7250,2688.0,Confirmed,Bank,False,,,"REFUND RM2,688"
 25/11/2025,Nurhayati,nur0808@gmail.com,60 19-861 0477,910.0,Installment,Stripe,True,,,
 25/11/2025,Chloe Chan Soo Ling,sooling92@hotmail.com,60 16-276 0368,2688.0,Confirmed,Stripe,True,,,
-25/11/2025,Ann Tan,,60 12-618 1411,2688.0,Confirmed,Stripe,False,,,
+25/11/2025,Ann Tan,,60 12-618 1411,2688.0,Confirmed,Stripe,True,,,
 25/11/2025,Hui Choo,foohuichoo@gmail.com,60 12-369 5665,2688.0,Confirmed,Stripe,True,291025 My Daryl Movexercise8 Leads,291025 MY Daryl Movexercise8 LP-Ver1 Video 003,
 26/11/2025,Santhra,santhrakala@yahoo.com,60 12-581 9501,2688.0,Confirmed,Stripe,True,,,
 26/11/2025,Rema,rema@npra.gov.my,60 16-441 5602,470.0,Installment,Stripe,False,291025 My Daryl Movexercise8 Leads,291025 MY Daryl Movexercise8 LP-Ver2 Video 005,

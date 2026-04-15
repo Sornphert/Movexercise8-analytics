@@ -4,5 +4,6 @@
   "course_fee_full": 2688,
   "currency": "MYR",
   "webinar_format": "2-day",
-  "offer_timing_minutes": 120
+  "offer_timing_minutes": 120,
+  "webinar_scheduled_start": "20:00"
 }

@@ -25,31 +25,137 @@ def calculate_funnel_metrics(leads: pd.DataFrame, purchases: pd.DataFrame) -> di
     }
 
 
-def calculate_revenue_metrics(purchases: pd.DataFrame) -> dict:
-    paid = purchases[purchases["amount"] > 0]
-    complete = purchases[purchases["payment_complete"] == True]
-    incomplete = purchases[purchases["payment_complete"] == False]
+# ---------------------------------------------------------------------------
+# Installment-aware revenue math
+# ---------------------------------------------------------------------------
 
-    total_revenue = float(paid["amount"].sum())
-    collected = float(complete["amount"].sum())
-    outstanding = float(incomplete["amount"].sum())
+def _drop_refunds(df: pd.DataFrame) -> pd.DataFrame:
+    if "is_refund" in df.columns:
+        return df[~df["is_refund"]].copy()
+    return df.copy()
 
-    revenue_by_status = (
-        paid.groupby("status")["amount"].sum().to_dict()
+
+def installment_plan_length(amount: float) -> int:
+    # Anchors: 232 → 12mo, 458 → 6mo, 907 → 3mo. Ranges absorb near-values (470, 910).
+    if amount <= 350:
+        return 12
+    if amount <= 700:
+        return 6
+    return 3
+
+
+def months_elapsed(signup: pd.Timestamp, today: pd.Timestamp, plan_length: int) -> int:
+    if pd.isna(signup):
+        return 0
+    # Signup month counts as month 1
+    elapsed = (today.year - signup.year) * 12 + (today.month - signup.month) + 1
+    return max(0, min(elapsed, plan_length))
+
+
+def compute_buyer_balance(row, today: pd.Timestamp, course_fee_full: float) -> dict:
+    status = str(row.get("status", "")).strip()
+    amount = row.get("amount")
+    if pd.isna(amount):
+        amount = 0.0
+    amount = float(amount)
+
+    course_fee = float(course_fee_full)
+    if status == "Installment" and amount >= course_fee:
+        # Full fee paid upfront despite "Installment" label — treat as done.
+        total = amount
+        collected = amount
+        outstanding = 0.0
+    elif status == "Installment":
+        plan = installment_plan_length(amount)
+        paid_months = months_elapsed(row["date"], today, plan)
+        total = amount * plan
+        collected = amount * paid_months
+        outstanding = total - collected
+    elif status == "Deposit":
+        total = float(course_fee_full)
+        collected = amount
+        outstanding = max(0.0, total - collected)
+    else:  # Confirmed (or anything else)
+        total = amount
+        collected = amount if bool(row.get("payment_complete", False)) else 0.0
+        outstanding = total - collected
+
+    return {"total": total, "collected": collected, "outstanding": outstanding}
+
+
+def _balances_frame(purchases: pd.DataFrame, course_fee_full: float, today: pd.Timestamp) -> pd.DataFrame:
+    df = _drop_refunds(purchases)
+    records = df.apply(
+        lambda r: compute_buyer_balance(r, today, course_fee_full), axis=1
     )
-    revenue_by_method = (
-        paid.groupby("payment_method")["amount"].sum().to_dict()
-    )
+    bal = pd.DataFrame(list(records), index=df.index)
+    return df.join(bal)
+
+
+def calculate_revenue_metrics(
+    purchases: pd.DataFrame,
+    course_fee_full: float = 2688,
+    today: pd.Timestamp | None = None,
+) -> dict:
+    today = today or pd.Timestamp(date.today())
+    df = _balances_frame(purchases, course_fee_full, today)
+
+    total_revenue = float(df["total"].sum())
+    collected = float(df["collected"].sum())
+    outstanding = float(df["outstanding"].sum())
+
+    # This/last month — signup-based (sum of raw `amount` where date in that month)
+    this_month = today.to_period("M")
+    last_month = (today - pd.DateOffset(months=1)).to_period("M")
+    month_periods = df["date"].dt.to_period("M")
+    this_month_rev = float(df.loc[month_periods == this_month, "amount"].fillna(0).sum())
+    last_month_rev = float(df.loc[month_periods == last_month, "amount"].fillna(0).sum())
 
     return {
         "total_revenue": total_revenue,
         "collected_revenue": collected,
         "outstanding_revenue": outstanding,
-        "avg_per_buyer": round(total_revenue / len(paid), 2) if len(paid) else 0.0,
-        "total_transactions": len(paid),
-        "revenue_by_status": revenue_by_status,
-        "revenue_by_method": revenue_by_method,
+        "avg_per_buyer": round(total_revenue / len(df), 2) if len(df) else 0.0,
+        "total_transactions": len(df),
+        "this_month_revenue": this_month_rev,
+        "last_month_revenue": last_month_rev,
+        "this_month_label": this_month.strftime("%b %Y"),
+        "last_month_label": last_month.strftime("%b %Y"),
+        "revenue_by_status": df.groupby("status")["total"].sum().to_dict(),
+        "revenue_by_method": df.groupby("payment_method")["total"].sum().to_dict(),
     }
+
+
+def get_revenue_by_status(
+    purchases: pd.DataFrame,
+    course_fee_full: float = 2688,
+    today: pd.Timestamp | None = None,
+) -> pd.DataFrame:
+    today = today or pd.Timestamp(date.today())
+    df = _balances_frame(purchases, course_fee_full, today)
+    return (
+        df.groupby("status")["total"].sum()
+        .reset_index()
+        .rename(columns={"total": "revenue"})
+        .sort_values("revenue", ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+def get_revenue_by_payment_method(
+    purchases: pd.DataFrame,
+    course_fee_full: float = 2688,
+    today: pd.Timestamp | None = None,
+) -> pd.DataFrame:
+    today = today or pd.Timestamp(date.today())
+    df = _balances_frame(purchases, course_fee_full, today)
+    return (
+        df.groupby("payment_method")["total"].sum()
+        .reset_index()
+        .rename(columns={"total": "revenue"})
+        .sort_values("revenue", ascending=False)
+        .reset_index(drop=True)
+    )
 
 
 def calculate_webinar_summary(webinars_dict: dict, min_attendees: int = 0) -> list[dict]:
@@ -92,20 +198,36 @@ def calculate_webinar_summary(webinars_dict: dict, min_attendees: int = 0) -> li
 
         # Retention: % of Day 1 attendees who came back for Day 2
         retention = 0.0
-        if day2 and day1_att > 0:
+        day1_emails: set = set()
+        day2_emails: set = set()
+        if day2:
             day1_emails = set(day1["participants"]["Email"].dropna())
             day2_emails = set(day2["participants"]["Email"].dropna())
-            returned = len(day1_emails & day2_emails)
-            retention = round(returned / len(day1_emails) * 100, 1) if day1_emails else 0.0
+            if day1_att > 0:
+                returned = len(day1_emails & day2_emails)
+                retention = round(returned / len(day1_emails) * 100, 1) if day1_emails else 0.0
+
+        # True unique attendees across Day 1 + Day 2 (dedup via email union).
+        # Fall back to additive count if email coverage is incomplete.
+        if day2:
+            if day1_emails and day2_emails and len(day1_emails) == day1_att and len(day2_emails) == day2_att:
+                total_unique = len(day1_emails | day2_emails)
+            else:
+                total_unique = day1_att + day2_att
+        else:
+            total_unique = day1_att
 
         bounced = day1["waiting_room_bounces"] + (day2["waiting_room_bounces"] if day2 else 0)
-        at_offer = int(day1_att * day1["stayed_120plus_pct"] / 100)
+        at_offer = int(day1.get("present_at_offer", round(day1_att * day1["stayed_120plus_pct"] / 100)))
 
         summaries.append({
             "meeting_id": mid,
             "label": day1["date"],
             "day1_attendees": day1_att,
             "day2_attendees": day2_att,
+            "day1_peak": int(day1.get("peak_attendance", 0)),
+            "day2_peak": int(day2.get("peak_attendance", 0)) if day2 else 0,
+            "total_unique": total_unique,
             "avg_duration": avg_dur,
             "stayed_120plus_pct": stayed_pct,
             "left_30min_pct": left_pct,
@@ -163,8 +285,9 @@ def calculate_period_comparison(
 
 
 def get_payment_completion_by_status(purchases: pd.DataFrame) -> list[dict]:
+    df = _drop_refunds(purchases)
     rows = []
-    for status, grp in purchases.groupby("status"):
+    for status, grp in df.groupby("status"):
         total = len(grp)
         complete = int(grp["payment_complete"].sum())
         rows.append({
@@ -176,15 +299,9 @@ def get_payment_completion_by_status(purchases: pd.DataFrame) -> list[dict]:
     return rows
 
 
-def get_top_customers(purchases: pd.DataFrame, n: int = 10) -> pd.DataFrame:
-    return (
-        purchases.nlargest(n, "amount")[["name", "amount", "status", "payment_method"]]
-        .reset_index(drop=True)
-    )
-
-
 def get_monthly_revenue(purchases: pd.DataFrame) -> pd.DataFrame:
-    df = purchases[purchases["amount"] > 0].copy()
+    df = _drop_refunds(purchases)
+    df = df[df["amount"] > 0].copy()
     df["month"] = df["date"].dt.to_period("M").astype(str)
     return (
         df.groupby("month")["amount"].sum()
@@ -282,12 +399,18 @@ def calculate_engagement_trend(event_summaries: list[dict]) -> dict | None:
     }
 
 
-def get_outstanding_payments(purchases: pd.DataFrame) -> pd.DataFrame:
-    unpaid = purchases[purchases["payment_complete"] == False].copy()
-    today = pd.Timestamp(date.today())
-    unpaid["days_overdue"] = (today - unpaid["date"]).dt.days
+def get_outstanding_payments(
+    purchases: pd.DataFrame,
+    course_fee_full: float = 2688,
+    today: pd.Timestamp | None = None,
+) -> pd.DataFrame:
+    today = today or pd.Timestamp(date.today())
+    df = _balances_frame(purchases, course_fee_full, today)
+    df = df[df["outstanding"] > 0].copy()
+    # The `amount` column in the output = outstanding balance (per user spec).
+    df["amount"] = df["outstanding"]
     return (
-        unpaid[["name", "phone", "amount", "status", "date", "days_overdue"]]
+        df[["name", "phone", "amount", "status", "date"]]
         .sort_values("amount", ascending=False)
         .reset_index(drop=True)
     )

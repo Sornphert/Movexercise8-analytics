@@ -11,12 +11,10 @@ from utils.metrics import (
     calculate_dropoff_curve,
     calculate_engagement_windows,
     calculate_exit_histogram,
-    calculate_offer_conversion,
     calculate_webinar_health,
     calculate_webinar_summary,
     get_event_cohorts,
     get_event_day_dates,
-    match_objections_for_event,
 )
 from utils.styles import COLORS, alert, metric_card, section_header
 
@@ -32,8 +30,6 @@ _HEALTH = {
 def render(data: dict):
     webinars = data["webinars"]
     purchases = data["purchases"]
-    objections = data["objections"]
-
     if not webinars:
         st.info("No webinar data loaded.")
         return
@@ -52,7 +48,7 @@ def render(data: dict):
         st.session_state["selected_webinar"] = events_desc[0]["meeting_id"]
 
     latest_event = events_desc[0]
-    _render_snapshot(latest_event, webinars, purchases, objections)
+    _render_snapshot(latest_event, webinars, purchases)
 
     _render_all_table(events_desc, webinars, purchases)
 
@@ -66,11 +62,9 @@ def render(data: dict):
     d1_df, _ = load_participant_detail(day1_date, selected_mid) if day1_date else (pd.DataFrame(), None)
     d2_df, _ = load_participant_detail(day2_date, selected_mid) if day2_date else (pd.DataFrame(), None)
 
-    _render_dropoff(selected_event, d1_df, d2_df, day1_date, day2_date)
-    _render_exit_histogram(selected_event, d1_df)
-    _render_engagement_windows(selected_event, webinars, d1_df)
-    _render_day_breakdown(webinars, selected_mid, purchases)
-    _render_offer_conversion(selected_event, events, purchases, webinars)
+    _render_dropoff(selected_event, d1_df, d2_df, day1_date, day2_date, webinars)
+    _render_exit_histogram(selected_event, d1_df, webinars, day1_date)
+    _render_engagement_windows(selected_event, webinars, d1_df, d2_df)
 
     _render_ai(events, latest_event, purchases, webinars)
 
@@ -79,7 +73,7 @@ def render(data: dict):
 # Section 1 — Latest webinar snapshot
 # ─────────────────────────────────────────────────────────────────────
 
-def _render_snapshot(event: dict, webinars: dict, purchases: pd.DataFrame, objections: pd.DataFrame):
+def _render_snapshot(event: dict, webinars: dict, purchases: pd.DataFrame):
     mid = event["meeting_id"]
     cohorts = get_event_cohorts(webinars, mid)
     day1, day2 = cohorts["day1"], cohorts["day2"]
@@ -100,9 +94,11 @@ def _render_snapshot(event: dict, webinars: dict, purchases: pd.DataFrame, objec
         unsafe_allow_html=True,
     )
 
-    # Group A — Attendance (6 cards)
+    # Group A — Attendance (join-only, after zero-duration filter)
     day1_att = day1["unique_attendees"] if day1 else 0
     day2_att = day2["unique_attendees"] if day2 else 0
+    d1_peak = int(day1.get("peak_attendance", 0)) if day1 else 0
+    d2_peak = int(day2.get("peak_attendance", 0)) if day2 else 0
     both = len(cohorts["both_days"])
     d1_only = len(cohorts["day1_only"])
     d2_only = len(cohorts["day2_only"])
@@ -111,8 +107,8 @@ def _render_snapshot(event: dict, webinars: dict, purchases: pd.DataFrame, objec
     st.markdown(section_header("Attendance"), unsafe_allow_html=True)
     cols = st.columns(6)
     specs = [
-        ("Day 1 Unique", day1_att),
-        ("Day 2 Unique", day2_att),
+        ("Day 1 Joined", day1_att),
+        ("Day 2 Joined", day2_att),
         ("Both Days", both),
         ("Day 1 Only", d1_only),
         ("Day 2 Only", d2_only),
@@ -144,37 +140,53 @@ def _render_snapshot(event: dict, webinars: dict, purchases: pd.DataFrame, objec
 
     # Group C — Conversion
     st.markdown(section_header("Conversion"), unsafe_allow_html=True)
-    cols = st.columns(4)
-    conv_rate = round(sales_count / day1_att * 100, 1) if day1_att else 0.0
-    at_offer = int(event.get("at_offer", 0))
-    offer_conv = round(sales_count / at_offer * 100, 1) if at_offer else 0.0
 
-    conv = [
-        ("Sales From This Webinar", str(sales_count)),
-        ("Revenue", f"RM {revenue:,.0f}"),
-        ("Conversion Rate", f"{conv_rate:.1f}%", "sales / Day 1 attendees"),
-        ("Offer-time Conversion", f"{offer_conv:.1f}%", f"sales / {at_offer} present at 120m"),
+    # Per-day sales attribution
+    sales_d1 = len(event_sales[event_sales["inferred_webinar"] == d1_date]) if d1_date else 0
+    sales_d2 = len(event_sales[event_sales["inferred_webinar"] == d2_date]) if d2_date else 0
+
+    day2_att = day2["unique_attendees"] if day2 else 0
+    d1_at_offer = int(day1.get("present_at_offer", 0)) if day1 else 0
+    d2_at_offer = int(day2.get("present_at_offer", 0)) if day2 else 0
+
+    d1_conv = round(sales_d1 / day1_att * 100, 1) if day1_att else 0.0
+    d1_offer_conv = round(sales_d1 / d1_at_offer * 100, 1) if d1_at_offer else None
+    d2_conv = round(sales_d2 / day2_att * 100, 1) if day2_att else 0.0
+    d2_offer_conv = round(sales_d2 / d2_at_offer * 100, 1) if d2_at_offer else None
+
+    avg_conv = round(sales_count / total * 100, 1) if total else 0.0
+
+    row1 = st.columns(3)
+    with row1[0]:
+        st.markdown(metric_card("Sales From This Webinar", str(sales_count)), unsafe_allow_html=True)
+    with row1[1]:
+        st.markdown(metric_card("Revenue", f"RM {revenue:,.0f}"), unsafe_allow_html=True)
+    with row1[2]:
+        st.markdown(
+            metric_card(
+                "Average Conversion Rate",
+                f"{avg_conv:.1f}%",
+                sub=f"{sales_count} / {total} total unique",
+            ),
+            unsafe_allow_html=True,
+        )
+
+    row2 = st.columns(4)
+    d1_offer_val = f"{d1_offer_conv:.1f}%" if d1_offer_conv is not None else "—"
+    d1_offer_sub = f"{sales_d1} / {d1_at_offer} present at 120m" if d1_at_offer else "no timing data"
+    d2_offer_val = (f"{d2_offer_conv:.1f}%" if d2_offer_conv is not None else "—") if day2 else "—"
+    d2_offer_sub = (f"{sales_d2} / {d2_at_offer} present at 120m" if d2_at_offer else "no timing data") if day2 else ""
+    cards = [
+        ("Day 1 Conversion", f"{d1_conv:.1f}%", f"{sales_d1} / {day1_att} Day 1 attendees"),
+        ("Day 1 Offer-time Conv", d1_offer_val, d1_offer_sub),
+        ("Day 2 Conversion",
+         f"{d2_conv:.1f}%" if day2 else "—",
+         f"{sales_d2} / {day2_att} Day 2 attendees" if day2 else ""),
+        ("Day 2 Offer-time Conv", d2_offer_val, d2_offer_sub),
     ]
-    for col, spec in zip(cols, conv):
-        label, val = spec[0], spec[1]
-        sub = spec[2] if len(spec) > 2 else ""
+    for col, (label, val, sub) in zip(row2, cards):
         with col:
             st.markdown(metric_card(label, val, sub=sub), unsafe_allow_html=True)
-
-    # Group D — Failed leads
-    st.markdown(section_header("Failed Leads"), unsafe_allow_html=True)
-    cols = st.columns(2)
-    ev_obj = match_objections_for_event(objections, d1_date, d2_date)
-    bonus_count = len(ev_obj) + sales_count
-    if len(ev_obj):
-        top_cat = ev_obj["category"].value_counts().idxmax()
-    else:
-        top_cat = "—"
-    with cols[0]:
-        st.markdown(metric_card("BONUS Messages", str(bonus_count),
-                                sub="objections + buyers"), unsafe_allow_html=True)
-    with cols[1]:
-        st.markdown(metric_card("Top Objection", top_cat), unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -203,19 +215,16 @@ def _render_all_table(events_desc: list[dict], webinars: dict, purchases: pd.Dat
         sales_df = _sales_for_event(purchases, d1, d2)
         sales = len(sales_df)
         revenue = float(sales_df["amount"].fillna(0).sum()) if sales else 0.0
-        conv = round(sales / e["day1_attendees"] * 100, 1) if e["day1_attendees"] else 0.0
+        unique = e["total_unique"]
+        avg_conv = round(sales / unique * 100, 1) if unique else 0.0
         rows.append({
             "Date": _format_event_label(e, webinars),
-            "Day 1": e["day1_attendees"],
-            "Day 2": e["day2_attendees"],
-            "Unique": e["day1_attendees"] + e["day2_attendees"],
-            "Avg Dur": e["avg_duration"],
-            "% 120+": e["stayed_120plus_pct"],
-            "% Left <30m": e["left_30min_pct"],
-            "D2 Ret %": e["retention"],
+            "Day 1 Peak": e.get("day1_peak", 0),
+            "Day 2 Peak": e.get("day2_peak", 0),
+            "Total Unique": unique,
             "Sales": sales,
             "Revenue": revenue,
-            "Conv %": conv,
+            "Avg Conv Rate": avg_conv,
         })
     df = pd.DataFrame(rows)
 
@@ -226,24 +235,12 @@ def _render_all_table(events_desc: list[dict], webinars: dict, purchases: pd.Dat
             return f"color: {COLORS['warning']}; font-weight: 600;"
         return f"color: {COLORS['success']}; font-weight: 600;"
 
-    def _color_stayed(v):
-        if v < 40:
-            return f"color: {COLORS['danger']}; font-weight: 600;"
-        if v < 50:
-            return f"color: {COLORS['warning']}; font-weight: 600;"
-        return f"color: {COLORS['success']}; font-weight: 600;"
-
     styled = (
         df.style
         .map(_color_sales, subset=["Sales"])
-        .map(_color_stayed, subset=["% 120+"])
         .format({
-            "Avg Dur": "{:.0f}",
-            "% 120+": "{:.1f}%",
-            "% Left <30m": "{:.1f}%",
-            "D2 Ret %": "{:.1f}%",
             "Revenue": "RM {:,.0f}",
-            "Conv %": "{:.1f}%",
+            "Avg Conv Rate": "{:.1f}%",
         })
     )
     st.dataframe(styled, use_container_width=True, hide_index=True)
@@ -254,18 +251,26 @@ def _render_all_table(events_desc: list[dict], webinars: dict, purchases: pd.Dat
 # ─────────────────────────────────────────────────────────────────────
 
 def _render_dropoff(event: dict, d1_df: pd.DataFrame, d2_df: pd.DataFrame,
-                    d1_date: str | None, d2_date: str | None):
+                    d1_date: str | None, d2_date: str | None,
+                    webinars: dict | None = None):
     st.markdown(section_header("Drop-off Curves"), unsafe_allow_html=True)
 
     has_d2 = d2_date is not None
     cols = st.columns(2) if has_d2 else [st.container()]
+
+    mid = event["meeting_id"]
+    d1_entry = webinars.get(f"{d1_date}_{mid}") if (webinars and d1_date) else None
+    d2_entry = webinars.get(f"{d2_date}_{mid}") if (webinars and d2_date) else None
+    d1_offer_min = d1_entry.get("offer_minute", OFFER_MINUTE) if d1_entry else OFFER_MINUTE
+    d2_offer_min = d2_entry.get("offer_minute", OFFER_MINUTE) if d2_entry else OFFER_MINUTE
 
     with cols[0]:
         st.caption(f"Day 1 — {d1_date}")
         if d1_df.empty:
             st.warning("Raw participant data not available for Day 1.")
         else:
-            st.plotly_chart(_dropoff_figure(d1_df, "Day 1"), use_container_width=True)
+            st.plotly_chart(_dropoff_figure(d1_df, "Day 1", d1_offer_min),
+                            use_container_width=True, key="dropoff_day1")
 
     if has_d2:
         with cols[1]:
@@ -273,49 +278,81 @@ def _render_dropoff(event: dict, d1_df: pd.DataFrame, d2_df: pd.DataFrame,
             if d2_df.empty:
                 st.warning("Raw participant data not available for Day 2.")
             else:
-                st.plotly_chart(_dropoff_figure(d2_df, "Day 2"), use_container_width=True)
+                st.plotly_chart(_dropoff_figure(d2_df, "Day 2", d2_offer_min),
+                                use_container_width=True, key="dropoff_day2")
 
 
-def _dropoff_figure(participants: pd.DataFrame, title_suffix: str) -> go.Figure:
+def _mins_to_clock(m: float, eight_pm: float) -> str:
+    """Convert minute-from-zoom-start to clock time label, with 8pm as the anchor."""
+    total = (m - eight_pm) + 20 * 60  # 20:00 + offset
+    hh = int(total // 60) % 24
+    mm = int(round(total % 60))
+    if mm == 60:
+        hh = (hh + 1) % 24
+        mm = 0
+    period = "PM" if hh >= 12 else "AM"
+    h12 = ((hh - 1) % 12) + 1
+    return f"{h12}:{mm:02d} {period}"
+
+
+def _dropoff_figure(participants: pd.DataFrame, title_suffix: str,
+                    offer_minute: float = OFFER_MINUTE) -> go.Figure:
     curve = calculate_dropoff_curve(participants, interval=5)
     if curve.empty:
         return apply_standard_layout(go.Figure())
 
     peak = int(curve["attendees"].max())
-    # attendees at minute nearest to offer
-    at_offer_row = curve.iloc[(curve["minute"] - OFFER_MINUTE).abs().argmin()]
+    at_offer_row = curve.iloc[(curve["minute"] - offer_minute).abs().argmin()]
     at_offer = int(at_offer_row["attendees"])
 
+    eight_pm = offer_minute - 120
+    # Rebase x-axis so 8:00 PM = 0
+    x_rebased = [m - eight_pm for m in curve["minute"]]
+    offer_x = offer_minute - eight_pm  # always 120
+    clock_labels = [_mins_to_clock(m, eight_pm) for m in curve["minute"]]
+
     fig = go.Figure()
-    # Shaded area from curve down to at_offer level (visualizes who left before offer)
     fig.add_trace(go.Scatter(
-        x=curve["minute"], y=[at_offer] * len(curve),
+        x=x_rebased, y=[at_offer] * len(curve),
         mode="lines", line=dict(width=0), showlegend=False, hoverinfo="skip",
     ))
     fig.add_trace(go.Scatter(
-        x=curve["minute"], y=curve["attendees"],
+        x=x_rebased, y=curve["attendees"],
         mode="lines", line=dict(color=COLORS["secondary"], width=2.5),
         fill="tonexty", fillcolor="rgba(231,111,81,0.15)",
-        name="Attendees", hovertemplate="min %{x}: %{y} present<extra></extra>",
+        name="Attendees", customdata=clock_labels,
+        hovertemplate="%{customdata}: %{y} present<extra></extra>",
     ))
+    # Half-hour dotted gridlines (skip 10pm — already has OFFER line)
+    for offset in [-30, 30, 60, 90, 150]:
+        fig.add_vline(x=offset, line_dash="dot",
+                      line_color="rgba(0,0,0,0.18)", line_width=1)
     fig.add_vline(
-        x=OFFER_MINUTE, line_dash="dash", line_color=COLORS["danger"],
+        x=offer_x, line_dash="dash", line_color=COLORS["danger"],
         annotation_text="OFFER", annotation_position="top",
     )
     fig.add_annotation(
-        x=curve["minute"].iloc[0], y=peak,
+        x=-30, y=peak,
         text=f"Peak: {peak}", showarrow=False, xanchor="left", yanchor="bottom",
         font=dict(size=11, color=COLORS["primary"]),
     )
     fig.add_annotation(
-        x=OFFER_MINUTE, y=at_offer,
+        x=offer_x, y=at_offer,
         text=f"At offer: {at_offer}", showarrow=True, arrowhead=2,
         ax=30, ay=-30, font=dict(size=11, color=COLORS["danger"]),
     )
+    tick_vals = [-30, 0, 30, 60, 90, 120, 150, 180]
+    tick_text = ["7:30 PM", "8:00 PM", "8:30", "9:00 PM", "9:30", "10:00 PM", "10:30", "11:00 PM"]
     fig.update_layout(
         title_text=f"{title_suffix} — Attendees over time",
-        xaxis_title="Minutes from start",
+        xaxis_title="Time",
         yaxis_title="Unique attendees present",
+        xaxis=dict(
+            tickmode="array",
+            tickvals=tick_vals,
+            ticktext=tick_text,
+            range=[-30, 180],
+        ),
     )
     return apply_standard_layout(fig, height=380)
 
@@ -324,7 +361,9 @@ def _dropoff_figure(participants: pd.DataFrame, title_suffix: str) -> go.Figure:
 # Section 4 — Exit histogram
 # ─────────────────────────────────────────────────────────────────────
 
-def _render_exit_histogram(event: dict, d1_df: pd.DataFrame):
+def _render_exit_histogram(event: dict, d1_df: pd.DataFrame,
+                           webinars: dict | None = None,
+                           d1_date: str | None = None):
     st.markdown(section_header("When Do They Leave?"), unsafe_allow_html=True)
     if d1_df.empty:
         st.warning("Raw participant data not available for this webinar.")
@@ -335,38 +374,59 @@ def _render_exit_histogram(event: dict, d1_df: pd.DataFrame):
         st.info("No exit data to show.")
         return
 
+    mid = event["meeting_id"]
+    d1_entry = webinars.get(f"{d1_date}_{mid}") if (webinars and d1_date) else None
+    offer_minute = d1_entry.get("offer_minute", OFFER_MINUTE) if d1_entry else OFFER_MINUTE
+    eight_pm = offer_minute - 120
+
     top3_starts = set(hist.nlargest(3, "exits")["bucket_start"].tolist())
     colors = [
         COLORS["danger"] if s in top3_starts else COLORS["secondary"]
         for s in hist["bucket_start"]
     ]
 
+    x_rebased = [s - eight_pm for s in hist["bucket_start"]]
+    clock_labels = [_mins_to_clock(s, eight_pm) for s in hist["bucket_start"]]
+
     fig = go.Figure(go.Bar(
-        x=hist["minute_bucket"],
+        x=x_rebased,
         y=hist["exits"],
         marker_color=colors,
-        hovertemplate="min %{x}: %{y} exits<extra></extra>",
+        width=4.5,
+        customdata=clock_labels,
+        hovertemplate="%{customdata}: %{y} exits<extra></extra>",
     ))
-    # OFFER annotation at x bucket containing 120
-    offer_bucket = f"{(OFFER_MINUTE // 5) * 5}-{(OFFER_MINUTE // 5) * 5 + 5}"
-    if offer_bucket in hist["minute_bucket"].values:
-        fig.add_annotation(
-            x=offer_bucket, y=hist["exits"].max(),
-            text="OFFER", showarrow=True, arrowhead=2,
-            ax=0, ay=-30, font=dict(size=11, color=COLORS["danger"]),
-        )
+    # Half-hour dotted gridlines
+    for offset in [-30, 30, 60, 90, 150]:
+        fig.add_vline(x=offset, line_dash="dot",
+                      line_color="rgba(0,0,0,0.18)", line_width=1)
+    fig.add_vline(
+        x=120, line_dash="dash", line_color=COLORS["danger"],
+        annotation_text="OFFER", annotation_position="top",
+    )
+
+    tick_vals = [-30, 0, 30, 60, 90, 120, 150, 180]
+    tick_text = ["7:30 PM", "8:00 PM", "8:30", "9:00 PM", "9:30", "10:00 PM", "10:30", "11:00 PM"]
     fig.update_layout(
         title_text="Exits per 5-minute bucket (Day 1)",
-        xaxis_title="Minute bucket",
+        xaxis_title="Time",
         yaxis_title="People who left",
+        xaxis=dict(
+            tickmode="array",
+            tickvals=tick_vals,
+            ticktext=tick_text,
+            range=[-30, 180],
+        ),
     )
     st.plotly_chart(apply_standard_layout(fig, height=360), use_container_width=True)
 
     top = hist.nlargest(1, "exits").iloc[0]
+    top_start_clock = _mins_to_clock(top["bucket_start"], eight_pm)
+    top_end_clock = _mins_to_clock(top["bucket_start"] + 5, eight_pm)
     st.markdown(
         alert(
             f"<strong>Biggest exit moment:</strong> {top['exits']} people left between "
-            f"minute {top['bucket_start']} and {top['bucket_start'] + 5}. "
+            f"{top_start_clock} and {top_end_clock}. "
             f"Check the recording at this timestamp.",
             variant="warning",
         ),
@@ -378,20 +438,17 @@ def _render_exit_histogram(event: dict, d1_df: pd.DataFrame):
 # Section 5 — Engagement windows
 # ─────────────────────────────────────────────────────────────────────
 
-def _render_engagement_windows(event: dict, webinars: dict, d1_df: pd.DataFrame):
+def _render_engagement_windows(event: dict, webinars: dict,
+                               d1_df: pd.DataFrame, d2_df: pd.DataFrame):
     st.markdown(section_header("Engagement Windows"), unsafe_allow_html=True)
-    if d1_df.empty:
-        st.warning("Raw participant data not available for this webinar.")
-        return
 
     mid = event["meeting_id"]
-    # find Day 1 entry for meeting duration
-    day1_entries = sorted(
+    day_entries = sorted(
         [w for w in webinars.values() if w["meeting_id"] == mid],
         key=lambda w: w["date"],
     )
-    meeting_dur = day1_entries[0]["meeting_duration"] if day1_entries else 180
-    windows = calculate_engagement_windows(d1_df, meeting_dur)
+    d1_dur = day_entries[0]["meeting_duration"] if day_entries else 180
+    d2_dur = day_entries[1]["meeting_duration"] if len(day_entries) > 1 else d1_dur
 
     def _color(pct: float) -> str:
         if pct >= 80:
@@ -400,26 +457,26 @@ def _render_engagement_windows(event: dict, webinars: dict, d1_df: pd.DataFrame)
             return COLORS["warning"]
         return COLORS["danger"]
 
-    labels = [w["window"] for w in windows]
-    values = [w["retention_pct"] for w in windows]
-    text = [
-        f"{w['retention_pct']}% ({w['end_count']}/{w['start_count']} stayed)"
-        for w in windows
-    ]
-    colors = [_color(p) for p in values]
+    def _windows_fig(df: pd.DataFrame, dur: int, title: str) -> go.Figure:
+        windows = calculate_engagement_windows(df, dur)
+        labels = [w["window"] for w in windows]
+        values = [w["retention_pct"] for w in windows]
+        text = [
+            f"{w['retention_pct']}% ({w['end_count']}/{w['start_count']} stayed)"
+            for w in windows
+        ]
+        colors = [_color(p) for p in values]
+        fig = go.Figure(go.Bar(
+            x=values, y=labels, orientation="h",
+            marker_color=colors, text=text, textposition="outside",
+        ))
+        fig.update_layout(
+            title_text=title,
+            xaxis_title="Retention %", xaxis_range=[0, 115],
+            yaxis=dict(autorange="reversed"),
+        )
+        return apply_standard_layout(fig, height=320), windows
 
-    fig = go.Figure(go.Bar(
-        x=values, y=labels, orientation="h",
-        marker_color=colors, text=text, textposition="outside",
-    ))
-    fig.update_layout(
-        title_text="Retention by phase (Day 1)",
-        xaxis_title="Retention %", xaxis_range=[0, 115],
-        yaxis=dict(autorange="reversed"),
-    )
-    st.plotly_chart(apply_standard_layout(fig, height=320), use_container_width=True)
-
-    worst = min(windows, key=lambda w: w["retention_pct"])
     insight_map = {
         "First impression (0-30min)":
             "People are leaving in the first 30 minutes — check the opening hook.",
@@ -430,106 +487,35 @@ def _render_engagement_windows(event: dict, webinars: dict, d1_df: pd.DataFrame)
         "Decision window (120-end)":
             "People hear the offer but leave without buying — the offer itself may need work.",
     }
-    variant = "danger" if worst["retention_pct"] < 60 else (
-        "warning" if worst["retention_pct"] < 80 else "info"
-    )
-    st.markdown(
-        alert(f"<strong>{worst['window']}:</strong> {insight_map[worst['window']]}",
-              variant=variant),
-        unsafe_allow_html=True,
-    )
+
+    def _insight(windows: list[dict]) -> tuple[str, str]:
+        worst = min(windows, key=lambda w: w["retention_pct"])
+        variant = "danger" if worst["retention_pct"] < 60 else (
+            "warning" if worst["retention_pct"] < 80 else "info"
+        )
+        msg = f"<strong>{worst['window']}:</strong> {insight_map[worst['window']]}"
+        return msg, variant
+
+    has_d2 = not d2_df.empty
+    cols = st.columns(2) if has_d2 else [st.container()]
+
+    with cols[0]:
+        if d1_df.empty:
+            st.warning("Raw participant data not available for Day 1.")
+        else:
+            fig, windows = _windows_fig(d1_df, d1_dur, "Retention by phase (Day 1)")
+            st.plotly_chart(fig, use_container_width=True, key="eng_day1")
+            msg, variant = _insight(windows)
+            st.markdown(alert(msg, variant=variant), unsafe_allow_html=True)
+
+    if has_d2:
+        with cols[1]:
+            fig, windows = _windows_fig(d2_df, d2_dur, "Retention by phase (Day 2)")
+            st.plotly_chart(fig, use_container_width=True, key="eng_day2")
+            msg, variant = _insight(windows)
+            st.markdown(alert(msg, variant=variant), unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Section 6 — Day 1 vs Day 2 breakdown
-# ─────────────────────────────────────────────────────────────────────
-
-def _render_day_breakdown(webinars: dict, mid: str, purchases: pd.DataFrame):
-    st.markdown(section_header("Day 1 vs Day 2 Breakdown"), unsafe_allow_html=True)
-
-    cohorts = get_event_cohorts(webinars, mid)
-    if cohorts["day2"] is None:
-        st.info("This was a single-day event.")
-        return
-
-    d1_only = cohorts["day1_only"]
-    both = cohorts["both_days"]
-    d2_only = cohorts["day2_only"]
-
-    d1_date, d2_date = get_event_day_dates(webinars, mid)
-    event_sales = _sales_for_event(purchases, d1_date, d2_date)
-    buyer_emails = set(
-        event_sales["norm_email"].dropna().astype(str).str.lower()
-    )
-
-    def _stats(emails: set[str]) -> tuple[int, int, float]:
-        n = len(emails)
-        buyers = len(emails & buyer_emails)
-        pct = round(buyers / n * 100, 1) if n else 0.0
-        return n, buyers, pct
-
-    d1_n, d1_b, d1_p = _stats(d1_only)
-    both_n, both_b, both_p = _stats(both)
-    d2_n, d2_b, d2_p = _stats(d2_only)
-
-    cols = st.columns(3)
-    for col, title, (n, b, p) in zip(
-        cols,
-        ["Day 1 Only", "Both Days", "Day 2 Only"],
-        [(d1_n, d1_b, d1_p), (both_n, both_b, both_p), (d2_n, d2_b, d2_p)],
-    ):
-        with col:
-            st.markdown(
-                metric_card(title, f"{n} attendees",
-                            sub=f"{b} bought ({p:.1f}% conversion)"),
-                unsafe_allow_html=True,
-            )
-
-    if d1_p > 0:
-        ratio = both_p / d1_p
-        ratio_text = f"{ratio:.1f}x more likely to buy"
-    elif both_p > 0:
-        ratio_text = "infinitely more likely to buy (Day 1 only = 0% conv)"
-    else:
-        ratio_text = "no sales in either group"
-    st.markdown(
-        alert(
-            f"People who attended both days converted at <strong>{both_p:.1f}%</strong> "
-            f"vs <strong>{d1_p:.1f}%</strong> for Day 1 only — {ratio_text}.",
-            variant="info",
-        ),
-        unsafe_allow_html=True,
-    )
-
-
-# ─────────────────────────────────────────────────────────────────────
-# Section 7 — Offer moment conversion
-# ─────────────────────────────────────────────────────────────────────
-
-def _render_offer_conversion(event: dict, all_events: list[dict],
-                             purchases: pd.DataFrame, webinars: dict):
-    st.markdown(section_header("Offer Moment Conversion"), unsafe_allow_html=True)
-
-    m = calculate_offer_conversion(event, purchases, all_events, webinars)
-    variant = "success" if m["above_avg"] else "danger"
-    direction = "above" if m["above_avg"] else "below"
-
-    st.markdown(
-        alert(
-            f"Of <strong>{m['people_at_offer']}</strong> people present when the offer was made, "
-            f"<strong>{m['sales']}</strong> bought "
-            f"(<strong>{m['offer_conversion_pct']:.1f}%</strong>). "
-            f"This is {direction} the all-time average of "
-            f"<strong>{m['all_time_avg_pct']:.1f}%</strong>.",
-            variant=variant,
-        ),
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "_If the offer conversion is low but attendance is high, the offer needs work. "
-        "If attendance at offer time is low, the problem is earlier — people are leaving "
-        "before hearing the pitch._"
-    )
 
 
 # ─────────────────────────────────────────────────────────────────────
