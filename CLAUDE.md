@@ -11,6 +11,8 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - `utils/charts.py` — Reusable Plotly chart helpers with consistent styling.
 - `utils/styles.py` — CSS, color constants, metric card helper, alert helper.
 - `data/` — All CSVs and the `zoom_participants/` folder. Plus `config.json` for program metadata.
+- `scripts/fetch_purchases_data.py` — Pulls `purchases.csv` from the public Google Sheet via CSV-export URL. Requires `PURCHASES_SHEET_URL` in `.env`. Supports `--dry-run`.
+- `scripts/fetch_zoom_data.py` — Pulls Zoom participant CSVs via Server-to-Server OAuth. Requires `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` in `.env`. Uses per-occurrence UUID so same-date sessions don't collide.
 
 ## Conventions
 - All metric calculations live in `utils/metrics.py`. Never inline math in section files.
@@ -35,6 +37,8 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - Email matching is unreliable (only ~22% of buyers had matching emails to leads). Phone matching is much better (~95%). Always try phone first, email second.
 - Zoom participant files come in pairs (one with `__1_` suffix). The duplicates have identical data — skip them.
 - The "offer timing" is around 120 minutes into each Day 1 webinar. This is the key moment for engagement analysis.
+- `purchases.csv` is auto-pulled from Google Sheets — do not hand-edit. Run `python scripts/fetch_purchases_data.py` to refresh.
+- `load_all()` enriches purchases with an `inferred_webinar` column (nearest webinar on/before the purchase date, within 14 days). Use `get_webinar_sales_summary()` from `utils/data_loader.py` for per-webinar sales breakdowns.
 
 ## Testing
 - Run locally with `streamlit run app.py`
@@ -47,5 +51,6 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - [done] Phase 2b: Cohort Analysis (monthly cohorts, webinar cohort comparison, funnel heatmap)
 - [done] Phase 3: Ad Spend & ROI (spend overview, creative comparison, top ads, quality rankings, ROI analysis)
 - [done] Phase 4: AI suggestions per section (Gemini 2.5 Flash), AI chatbot tab
+- [done] Purchases auto-pull from Google Sheets + webinar attribution (`inferred_webinar`, "Sales from latest" Overview card)
 
 Update this checklist as features get added.

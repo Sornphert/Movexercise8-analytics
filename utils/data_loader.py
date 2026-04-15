@@ -205,6 +205,9 @@ def load_webinars() -> dict:
         waiting_col = "In waiting room"
 
         # Waiting room bounces: joined waiting room but stayed < 5 min total
+        # NOTE: CSVs from scripts/fetch_zoom_data.py set "In waiting room" to "No"
+        # for all rows because the Zoom API doesn't expose this field. This metric
+        # will be 0 for API-fetched meetings (only accurate for manual CSV exports).
         waiting_room_bounces = int(
             ((participants[waiting_col].str.strip().str.lower() == "yes")
              & (participants[duration_col] < 5)).sum()
@@ -240,6 +243,73 @@ def load_webinars() -> dict:
     return webinars
 
 
+def infer_webinar_for_purchase(
+    purchase_date: pd.Timestamp,
+    webinar_dates: list[pd.Timestamp],
+    max_days_back: int = 14,
+) -> str | None:
+    """Most-recent webinar on/before purchase_date, within max_days_back."""
+    if pd.isna(purchase_date) or not webinar_dates:
+        return None
+    eligible = [wd for wd in webinar_dates if wd <= purchase_date]
+    if not eligible:
+        return None
+    latest = max(eligible)
+    if (purchase_date - latest).days > max_days_back:
+        return None
+    return latest.strftime("%Y-%m-%d")
+
+
+def enrich_purchases_with_webinar(
+    purchases_df: pd.DataFrame,
+    webinars_dict: dict,
+) -> pd.DataFrame:
+    """Return a copy of purchases_df with an 'inferred_webinar' column."""
+    df = purchases_df.copy()
+    unique_dates = sorted({pd.Timestamp(w["date"]) for w in webinars_dict.values()})
+    df["inferred_webinar"] = df["date"].apply(
+        lambda d: infer_webinar_for_purchase(d, unique_dates)
+    )
+    return df
+
+
+def get_webinar_sales_summary(
+    purchases_df: pd.DataFrame,
+    webinars_dict: dict,
+) -> dict:
+    """Keyed by webinar date; counts/revenue per attributed webinar."""
+    # Unique dates (dedupe same-day sessions)
+    webinar_dates = sorted({w["date"] for w in webinars_dict.values()})
+    summary = {
+        d: {
+            "sales_count": 0,
+            "total_revenue": 0.0,
+            "confirmed_count": 0,
+            "installment_count": 0,
+            "buyers": [],
+        }
+        for d in webinar_dates
+    }
+
+    if "inferred_webinar" not in purchases_df.columns:
+        return summary
+
+    attributed = purchases_df[purchases_df["inferred_webinar"].notna()]
+    for date_str, group in attributed.groupby("inferred_webinar"):
+        bucket = summary.setdefault(date_str, {
+            "sales_count": 0, "total_revenue": 0.0,
+            "confirmed_count": 0, "installment_count": 0, "buyers": [],
+        })
+        bucket["sales_count"] = int(len(group))
+        bucket["total_revenue"] = float(group["amount"].fillna(0).sum())
+        status = group["status"].astype(str)
+        bucket["confirmed_count"] = int((status.str.strip() == "Confirmed").sum())
+        bucket["installment_count"] = int(status.str.contains("installment", case=False, na=False).sum())
+        bucket["buyers"] = group["name"].dropna().astype(str).unique().tolist()
+
+    return summary
+
+
 @st.cache_data
 def load_participant_detail(date_str: str, meeting_id: str) -> tuple[pd.DataFrame, pd.Timestamp]:
     """Load raw participant rows for a specific webinar session (for drop-off curves)."""
@@ -272,6 +342,9 @@ def load_config() -> dict:
 def load_all() -> dict:
     leads = load_leads()
     purchases = load_purchases()
+    webinars = load_webinars()
+
+    purchases = enrich_purchases_with_webinar(purchases, webinars)
 
     # Mark leads that converted to a purchase (match on email or phone)
     purchase_emails = set(purchases["norm_email"].dropna())
@@ -286,7 +359,7 @@ def load_all() -> dict:
         "purchases": purchases,
         "meta": load_meta_ads(),
         "objections": load_objections(),
-        "webinars": load_webinars(),
+        "webinars": webinars,
         "config": load_config(),
     }
 
@@ -308,3 +381,18 @@ if __name__ == "__main__":
               f"avg {w['avg_duration']}min, "
               f"{w['stayed_120plus_pct']}% stayed 120+, "
               f"{w['waiting_room_bounces']} waiting room bounces")
+
+    print()
+    print("First 20 purchases with inferred webinar:")
+    sample = data["purchases"][["date", "name", "amount", "inferred_webinar"]].head(20)
+    print(sample.to_string(index=False))
+
+    print()
+    print("Webinar sales summary:")
+    summary = get_webinar_sales_summary(data["purchases"], data["webinars"])
+    for date_str in sorted(summary):
+        s = summary[date_str]
+        if s["sales_count"]:
+            print(f"  {date_str}: {s['sales_count']} sales, "
+                  f"RM {s['total_revenue']:,.0f} "
+                  f"({s['confirmed_count']} confirmed, {s['installment_count']} installment)")

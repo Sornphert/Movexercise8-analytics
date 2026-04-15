@@ -9,6 +9,7 @@ from utils.metrics import (
     calculate_webinar_summary,
 )
 from utils.ai import render_ai_insights
+from utils.data_loader import get_webinar_sales_summary
 from utils.styles import alert, metric_card, section_header
 
 
@@ -20,6 +21,7 @@ def render(data: dict):
     funnel = calculate_funnel_metrics(leads, purchases)
     revenue = calculate_revenue_metrics(purchases)
     events = calculate_webinar_summary(webinars)
+    webinar_sales = get_webinar_sales_summary(purchases, webinars)
 
     # ── Hero metrics ──────────────────────────────────────────────
     st.markdown(section_header("Overview"), unsafe_allow_html=True)
@@ -61,7 +63,11 @@ def render(data: dict):
         else:
             health_variant, health_label = "danger", "Below target"
 
-        w1, w2, w3, w4, w5 = st.columns(5)
+        latest_sales = webinar_sales.get(
+            latest["label"], {"sales_count": 0, "total_revenue": 0.0}
+        )
+
+        w1, w2, w3, w4, w5, w6 = st.columns(6)
         with w1:
             st.markdown(metric_card("Date", latest["label"]), unsafe_allow_html=True)
         with w2:
@@ -71,6 +77,15 @@ def render(data: dict):
         with w4:
             st.markdown(metric_card("Stayed 120+ min", f"{stayed:.1f}%"), unsafe_allow_html=True)
         with w5:
+            st.markdown(
+                metric_card(
+                    "Sales from latest",
+                    str(latest_sales["sales_count"]),
+                    f"RM {latest_sales['total_revenue']:,.0f}",
+                ),
+                unsafe_allow_html=True,
+            )
+        with w6:
             st.markdown(
                 metric_card("Health", health_label, variant=health_variant),
                 unsafe_allow_html=True,

@@ -142,22 +142,29 @@ LEAD SOURCES (UTM campaigns):
 
 
 def render_ai_insights(section: str, context: str) -> None:
-    """Render an AI insights expander at the bottom of a section tab."""
-    with st.expander("AI Insights", expanded=False):
-        api_key = st.session_state.get("gemini_api_key", "")
-        if not api_key:
-            st.caption("Enter your Gemini API key in the sidebar to enable AI insights.")
-            return
+    """Render AI insights at the bottom of a section tab."""
+    st.divider()
+    st.subheader("AI Suggestions")
 
-        cache_key = f"ai_insights_{section}"
+    api_key = st.session_state.get("gemini_api_key", "")
+    if not api_key:
+        st.caption("Gemini API key not configured — add it to .streamlit/secrets.toml")
+        return
 
-        if st.button("Generate Insights", key=f"gen_{section}"):
-            with st.spinner("Analyzing with Gemini..."):
-                try:
-                    result = generate_insights(api_key, section, context)
-                    st.session_state[cache_key] = result
-                except Exception as e:
-                    st.error(f"Gemini API error: {e}")
+    cache_key = f"ai_insights_{section}"
 
-        if cache_key in st.session_state:
-            st.markdown(st.session_state[cache_key])
+    # Show cached insights if available
+    if cache_key in st.session_state:
+        st.markdown(st.session_state[cache_key])
+        button_label = "Regenerate"
+    else:
+        button_label = "Generate Suggestions"
+
+    if st.button(button_label, key=f"gen_{section}"):
+        with st.spinner("Analyzing with Gemini..."):
+            try:
+                result = generate_insights(api_key, section, context)
+                st.session_state[cache_key] = result
+                st.rerun()
+            except Exception as e:
+                st.error(f"Gemini API error: {e}")
