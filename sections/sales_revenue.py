@@ -83,9 +83,9 @@ def render(data: dict):
             column_config={
                 "name": "Name",
                 "phone": "Phone",
-                "amount": st.column_config.NumberColumn("Amount (RM)", format="%.0f"),
+                "amount": st.column_config.NumberColumn("Outstanding Amount (RM)", format="%.0f"),
                 "status": "Status",
-                "date": st.column_config.DateColumn("Date"),
+                "date": st.column_config.DateColumn("Purchase Date"),
             },
             hide_index=True,
         )

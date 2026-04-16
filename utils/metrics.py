@@ -73,9 +73,9 @@ def compute_buyer_balance(row, today: pd.Timestamp, course_fee_full: float) -> d
         collected = amount * paid_months
         outstanding = total - collected
     elif status == "Deposit":
-        total = float(course_fee_full)
+        total = amount
         collected = amount
-        outstanding = max(0.0, total - collected)
+        outstanding = 0.0
     else:  # Confirmed (or anything else)
         total = amount
         collected = amount if bool(row.get("payment_complete", False)) else 0.0
