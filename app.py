@@ -72,8 +72,8 @@ with st.sidebar:
         data["leads"] = data["leads"][(data["leads"]["date"] >= start) & (data["leads"]["date"] < end)]
         data["purchases"] = data["purchases"][(data["purchases"]["date"] >= start) & (data["purchases"]["date"] < end)]
         obj = data["objections"]
-        obj_dates = pd.to_datetime(obj["webinar_date"], errors="coerce")
-        data["objections"] = obj[(obj_dates >= start) & (obj_dates < end)]
+        obj_dates = obj["_filter_date"]
+        data["objections"] = obj[obj_dates.isna() | ((obj_dates >= start) & (obj_dates < end))]
         data["webinars"] = {
             k: v for k, v in data["webinars"].items()
             if start <= pd.Timestamp(v["date"]) < end

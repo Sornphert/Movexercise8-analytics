@@ -151,6 +151,41 @@ def load_meta_ads() -> pd.DataFrame:
     return df
 
 
+def _parse_webinar_start_date(label) -> pd.Timestamp | None:
+    """Extract the start date from a human-written webinar date label.
+
+    Examples: "Mar 9-10 2026" → 2026-03-09, "Dec 2025→Mar 2026" → 2025-12-01,
+    "Feb-Mar 2026" → 2026-02-01.
+    """
+    if pd.isna(label):
+        return None
+    s = str(label).strip()
+    # Take part before arrow (e.g. "Dec 2025→Mar 2026" → "Dec 2025")
+    s = s.split("→")[0].strip()
+    # Find year from the split part first, fall back to full label
+    year_m = re.search(r"(\d{4})", s)
+    if not year_m:
+        year_m = re.search(r"(\d{4})\s*$", str(label).strip())
+        if not year_m:
+            return None
+    year = year_m.group(1)
+    # Try "Mon DD" at start — (?!\d) ensures DD isn't part of a year like "2025"
+    md = re.match(r"([A-Za-z]+)\s+(\d{1,2})(?!\d)", s)
+    if md:
+        try:
+            return pd.to_datetime(f"{md.group(1)} {md.group(2)} {year}")
+        except Exception:
+            pass
+    # Month only (e.g. "Dec 2025", "Feb-Mar 2026")
+    mo = re.match(r"([A-Za-z]+)", s)
+    if mo:
+        try:
+            return pd.to_datetime(f"{mo.group(1)} 1 {year}")
+        except Exception:
+            pass
+    return None
+
+
 @st.cache_data(ttl=300)
 def load_objections() -> pd.DataFrame:
     df = pd.read_csv(DATA_DIR / "objections.csv")
@@ -173,6 +208,10 @@ def load_objections() -> pd.DataFrame:
 
     # Parse child_age as numeric ("N/S" and blanks become NaN)
     df["child_age"] = pd.to_numeric(df["child_age"], errors="coerce")
+
+    # Parse webinar_date labels into a proper datetime for date-range filtering.
+    # Labels are human-written: "Mar 9-10 2026", "Dec 2025→Mar 2026", etc.
+    df["_filter_date"] = df["webinar_date"].apply(_parse_webinar_start_date)
 
     return df
 

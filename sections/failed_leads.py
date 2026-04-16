@@ -141,7 +141,7 @@ def render(data: dict):
                 marker_color=colors, text=age_df["count"],
                 textposition="outside",
             ))
-            fig.update_layout(title_text="Child Age Distribution")
+            fig.update_layout(title_text="Child Age Distribution", xaxis_type="category")
             from utils.charts import apply_standard_layout
             st.plotly_chart(
                 apply_standard_layout(fig),
