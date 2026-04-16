@@ -367,13 +367,32 @@ def calculate_funnel_stages(
 
 
 def calculate_dropoff_curve(
-    participants: pd.DataFrame, interval: int = 15,
+    participants: pd.DataFrame, interval: int = 15, align_to: float = 0,
 ) -> pd.DataFrame:
-    """Count unique attendees present at each minute mark."""
+    """Count unique attendees present at each clock-aligned minute mark.
+
+    ``align_to`` is a zoom-minute that should fall exactly on a sample
+    point (e.g. the zoom-minute corresponding to 8:00 PM) so that all
+    sample points map to round 5-minute clock times.
+    """
     if participants.empty:
         return pd.DataFrame(columns=["minute", "attendees"])
-    max_min = int(participants["leave_min"].max()) + 1
-    marks = list(range(0, max_min + interval, interval))
+
+    min_join = participants["join_min"].min()
+    max_leave = participants["leave_min"].max()
+
+    # Align marks so that align_to falls on a mark
+    offset = align_to % interval
+    first = offset
+    while first > min_join:
+        first -= interval
+
+    marks: list[float] = []
+    m = first
+    while m <= max_leave + interval:
+        marks.append(m)
+        m += interval
+
     rows = []
     for mark in marks:
         present = participants[
@@ -927,24 +946,46 @@ def get_top_ads(meta: pd.DataFrame, n: int = 5, by: str = "results") -> pd.DataF
 def calculate_exit_histogram(
     participants_df: pd.DataFrame,
     bucket_minutes: int = 5,
+    align_to: float = 0,
 ) -> pd.DataFrame:
-    """Histogram of leave-times in fixed-width buckets from minute 0."""
+    """Histogram of final leave-times in clock-aligned buckets.
+
+    Only counts the last leave per unique attendee — intermediate
+    disconnections/reconnections are ignored.  ``align_to`` is a
+    zoom-minute that should fall on a bucket boundary (e.g. the
+    zoom-minute corresponding to 8:00 PM) so hover labels land on
+    round clock times.
+    """
     if participants_df.empty or "leave_min" not in participants_df.columns:
         return pd.DataFrame(columns=["minute_bucket", "bucket_start", "exits"])
 
-    leaves = participants_df["leave_min"].dropna()
-    if leaves.empty:
+    # Only count the FINAL exit per unique attendee
+    final_leaves = participants_df.groupby("Email")["leave_min"].max().dropna()
+    if final_leaves.empty:
         return pd.DataFrame(columns=["minute_bucket", "bucket_start", "exits"])
 
-    max_min = int(leaves.max()) + bucket_minutes
-    edges = list(range(0, max_min + bucket_minutes, bucket_minutes))
+    min_leave = final_leaves.min()
+    max_leave = final_leaves.max()
+
+    # Align bucket edges so that align_to falls on an edge
+    offset = align_to % bucket_minutes
+    first_edge = offset
+    while first_edge > min_leave:
+        first_edge -= bucket_minutes
+
+    edges: list[float] = []
+    e = first_edge
+    while e <= max_leave + bucket_minutes:
+        edges.append(e)
+        e += bucket_minutes
 
     rows = []
-    for start in edges[:-1]:
-        end = start + bucket_minutes
-        count = int(((leaves >= start) & (leaves < end)).sum())
+    for i in range(len(edges) - 1):
+        start = edges[i]
+        end = edges[i + 1]
+        count = int(((final_leaves >= start) & (final_leaves < end)).sum())
         rows.append({
-            "minute_bucket": f"{start}-{end}",
+            "minute_bucket": f"{start:.0f}-{end:.0f}",
             "bucket_start": start,
             "exits": count,
         })

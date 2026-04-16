@@ -219,6 +219,7 @@ def _render_all_table(events_desc: list[dict], webinars: dict, purchases: pd.Dat
         avg_conv = round(sales / unique * 100, 1) if unique else 0.0
         rows.append({
             "Date": _format_event_label(e, webinars),
+            "Day": _format_day_names(d1, d2),
             "Day 1 Peak": e.get("day1_peak", 0),
             "Day 2 Peak": e.get("day2_peak", 0),
             "Total Unique": unique,
@@ -297,15 +298,14 @@ def _mins_to_clock(m: float, eight_pm: float) -> str:
 
 def _dropoff_figure(participants: pd.DataFrame, title_suffix: str,
                     offer_minute: float = OFFER_MINUTE) -> go.Figure:
-    curve = calculate_dropoff_curve(participants, interval=5)
+    eight_pm = offer_minute - 120
+    curve = calculate_dropoff_curve(participants, interval=5, align_to=eight_pm)
     if curve.empty:
         return apply_standard_layout(go.Figure())
 
     peak = int(curve["attendees"].max())
     at_offer_row = curve.iloc[(curve["minute"] - offer_minute).abs().argmin()]
     at_offer = int(at_offer_row["attendees"])
-
-    eight_pm = offer_minute - 120
     # Rebase x-axis so 8:00 PM = 0
     x_rebased = [m - eight_pm for m in curve["minute"]]
     offer_x = offer_minute - eight_pm  # always 120
@@ -347,6 +347,7 @@ def _dropoff_figure(participants: pd.DataFrame, title_suffix: str,
         title_text=f"{title_suffix} — Attendees over time",
         xaxis_title="Time",
         yaxis_title="Unique attendees present",
+        hovermode="x",
         xaxis=dict(
             tickmode="array",
             tickvals=tick_vals,
@@ -369,15 +370,15 @@ def _render_exit_histogram(event: dict, d1_df: pd.DataFrame,
         st.warning("Raw participant data not available for this webinar.")
         return
 
-    hist = calculate_exit_histogram(d1_df, bucket_minutes=5)
-    if hist.empty:
-        st.info("No exit data to show.")
-        return
-
     mid = event["meeting_id"]
     d1_entry = webinars.get(f"{d1_date}_{mid}") if (webinars and d1_date) else None
     offer_minute = d1_entry.get("offer_minute", OFFER_MINUTE) if d1_entry else OFFER_MINUTE
     eight_pm = offer_minute - 120
+
+    hist = calculate_exit_histogram(d1_df, bucket_minutes=5, align_to=eight_pm)
+    if hist.empty:
+        st.info("No exit data to show.")
+        return
 
     top3_starts = set(hist.nlargest(3, "exits")["bucket_start"].tolist())
     colors = [
@@ -411,6 +412,7 @@ def _render_exit_histogram(event: dict, d1_df: pd.DataFrame,
         title_text="Exits per 5-minute bucket (Day 1)",
         xaxis_title="Time",
         yaxis_title="People who left",
+        hovermode="x",
         xaxis=dict(
             tickmode="array",
             tickvals=tick_vals,
@@ -557,12 +559,24 @@ def _format_date_range(d1: str | None, d2: str | None) -> str:
     if not d1:
         return "—"
     d1_ts = pd.Timestamp(d1)
+    d1_day = d1_ts.strftime("%A")  # e.g. "Sunday"
     if d2:
         d2_ts = pd.Timestamp(d2)
+        d2_day = d2_ts.strftime("%A")
         if d1_ts.month == d2_ts.month and d1_ts.year == d2_ts.year:
-            return f"{d1_ts.strftime('%B')} {d1_ts.day}-{d2_ts.day}, {d1_ts.year}"
-        return f"{d1_ts.strftime('%b %d')} – {d2_ts.strftime('%b %d, %Y')}"
-    return d1_ts.strftime("%B %d, %Y")
+            return f"{d1_ts.strftime('%B')} {d1_ts.day}-{d2_ts.day}, {d1_ts.year} ({d1_day}-{d2_day})"
+        return f"{d1_ts.strftime('%b %d')} – {d2_ts.strftime('%b %d, %Y')} ({d1_day}-{d2_day})"
+    return f"{d1_ts.strftime('%B %d, %Y')} ({d1_day})"
+
+
+def _format_day_names(d1: str | None, d2: str | None) -> str:
+    if not d1:
+        return "—"
+    d1_day = pd.Timestamp(d1).strftime("%A")
+    if d2:
+        d2_day = pd.Timestamp(d2).strftime("%A")
+        return f"{d1_day}-{d2_day}"
+    return d1_day
 
 
 def _format_event_label(event: dict, webinars: dict) -> str:

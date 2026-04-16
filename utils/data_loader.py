@@ -13,6 +13,7 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 ZOOM_DIR = DATA_DIR / "zoom_participants"
 
 HOST_KEYWORDS = ["Support Team", "Daphnie", "Leon", "John"]
+MIN_ATTEND_MINUTES = 20  # Minimum total minutes to count as "attended"
 
 SHEETS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
@@ -281,6 +282,11 @@ def load_webinars() -> dict:
         grouped = participants.groupby("Email", dropna=True).agg(
             total_minutes=(duration_col, "sum")
         ).reset_index()
+
+        # Only count attendees who stayed at least MIN_ATTEND_MINUTES total
+        qualified_emails = set(grouped.loc[grouped["total_minutes"] >= MIN_ATTEND_MINUTES, "Email"])
+        grouped = grouped[grouped["total_minutes"] >= MIN_ATTEND_MINUTES].reset_index(drop=True)
+        participants = participants[participants["Email"].isin(qualified_emails)].copy()
 
         unique_attendees = len(grouped)
         avg_duration = round(grouped["total_minutes"].mean(), 1) if unique_attendees > 0 else 0
