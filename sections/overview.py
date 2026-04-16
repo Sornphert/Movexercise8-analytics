@@ -7,6 +7,7 @@ from utils.metrics import (
     calculate_period_comparison,
     calculate_revenue_metrics,
     calculate_webinar_summary,
+    get_event_day_dates,
 )
 from utils.ai import render_ai_insights
 from utils.data_loader import get_webinar_sales_summary
@@ -50,44 +51,38 @@ def render(data: dict):
 
     if events:
         latest = events[-1]  # sorted by date ascending
-        avg_dur = latest["avg_duration"]
-        stayed = latest["stayed_120plus_pct"]
+        day1_date, day2_date = get_event_day_dates(webinars, latest["meeting_id"])
 
-        # Health indicator
-        dur_ok = avg_dur > 110
-        stayed_ok = stayed > 50
-        if dur_ok and stayed_ok:
-            health_variant, health_label = "", "Healthy"
-        elif dur_ok or stayed_ok:
-            health_variant, health_label = "warning", "Needs attention"
-        else:
-            health_variant, health_label = "danger", "Below target"
+        day1_sales = webinar_sales.get(
+            day1_date, {"sales_count": 0, "total_revenue": 0.0}
+        ) if day1_date else {"sales_count": 0, "total_revenue": 0.0}
+        day2_sales = webinar_sales.get(
+            day2_date, {"sales_count": 0, "total_revenue": 0.0}
+        ) if day2_date else {"sales_count": 0, "total_revenue": 0.0}
 
-        latest_sales = webinar_sales.get(
-            latest["label"], {"sales_count": 0, "total_revenue": 0.0}
-        )
-
-        w1, w2, w3, w4, w5, w6 = st.columns(6)
+        w1, w2, w3, w4, w5 = st.columns(5)
         with w1:
             st.markdown(metric_card("Date", latest["label"]), unsafe_allow_html=True)
         with w2:
             st.markdown(metric_card("Day 1 Attendees", str(latest["day1_attendees"])), unsafe_allow_html=True)
         with w3:
-            st.markdown(metric_card("Avg Duration", f"{avg_dur:.0f} min"), unsafe_allow_html=True)
+            st.markdown(metric_card("Day 2 Attendees", str(latest["day2_attendees"])), unsafe_allow_html=True)
         with w4:
-            st.markdown(metric_card("Stayed 120+ min", f"{stayed:.1f}%"), unsafe_allow_html=True)
-        with w5:
             st.markdown(
                 metric_card(
-                    "Sales from latest",
-                    str(latest_sales["sales_count"]),
-                    f"RM {latest_sales['total_revenue']:,.0f}",
+                    "Sales from Day 1",
+                    str(day1_sales["sales_count"]),
+                    f"RM {day1_sales['total_revenue']:,.0f}",
                 ),
                 unsafe_allow_html=True,
             )
-        with w6:
+        with w5:
             st.markdown(
-                metric_card("Health", health_label, variant=health_variant),
+                metric_card(
+                    "Sales from Day 2",
+                    str(day2_sales["sales_count"]),
+                    f"RM {day2_sales['total_revenue']:,.0f}",
+                ),
                 unsafe_allow_html=True,
             )
     else:

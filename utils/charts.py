@@ -39,11 +39,16 @@ def bar_chart(
     text_col: str | None = None,
     color: str = "#2D6A4F",
     orientation: str = "v",
+    barmode: str = "group",
+    color_map: dict | None = None,
 ) -> go.Figure:
-    kwargs = dict(x=x, y=y, title=title, orientation=orientation)
+    kwargs = dict(x=x, y=y, title=title, orientation=orientation, barmode=barmode)
     if color_col:
         kwargs["color"] = color_col
-        kwargs["color_discrete_sequence"] = COLORS["chart_palette"]
+        if color_map:
+            kwargs["color_discrete_map"] = color_map
+        else:
+            kwargs["color_discrete_sequence"] = COLORS["chart_palette"]
     else:
         kwargs["color_discrete_sequence"] = [color]
     if text_col:
@@ -111,13 +116,14 @@ def pie_chart(
     values_col: str,
     names_col: str,
     title: str = "",
+    color_map: dict | None = None,
 ) -> go.Figure:
-    fig = px.pie(
-        df,
-        values=values_col,
-        names=names_col,
-        title=title,
-        color_discrete_sequence=COLORS["chart_palette"],
-    )
+    kwargs = dict(values=values_col, names=names_col, title=title)
+    if color_map:
+        kwargs["color"] = names_col
+        kwargs["color_discrete_map"] = color_map
+    else:
+        kwargs["color_discrete_sequence"] = COLORS["chart_palette"]
+    fig = px.pie(df, **kwargs)
     fig.update_traces(textinfo="label+percent", textposition="inside")
     return apply_standard_layout(fig)

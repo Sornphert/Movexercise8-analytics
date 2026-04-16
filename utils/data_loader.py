@@ -151,7 +151,7 @@ def load_meta_ads() -> pd.DataFrame:
     return df
 
 
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_objections() -> pd.DataFrame:
     df = pd.read_csv(DATA_DIR / "objections.csv")
 

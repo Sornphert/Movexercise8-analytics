@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date
 
 import pandas as pd
@@ -420,12 +421,6 @@ def get_outstanding_payments(
 # Failed Leads / Objections
 # ---------------------------------------------------------------------------
 
-RECOVERABLE_CATEGORIES = {"Still Considering", "Not Ready / Timing", "Spouse Buy-in"}
-POSSIBLY_RECOVERABLE_KEYWORDS = ["deposit", "future", "high intent", "will come back",
-                                  "still engaging", "pending", "reserved"]
-UNLIKELY_CATEGORIES = {"Went Silent", "Skepticism", "Prefers Physical", "Other"}
-
-
 def calculate_objection_breakdown(objections: pd.DataFrame) -> pd.DataFrame:
     counts = objections["category"].value_counts().reset_index()
     counts.columns = ["category", "count"]
@@ -434,69 +429,147 @@ def calculate_objection_breakdown(objections: pd.DataFrame) -> pd.DataFrame:
     return counts
 
 
+def _parse_webinar_sort_key(date_str: str) -> pd.Timestamp:
+    _MONTH_MAP = {
+        "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+        "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+    }
+    s = str(date_str).strip()
+    m = re.search(r"([A-Za-z]{3})\s+(\d{1,2})", s)
+    year_m = re.search(r"(\d{4})", s)
+    year = int(year_m.group(1)) if year_m else 2026
+    if m:
+        month = _MONTH_MAP.get(m.group(1).lower(), 1)
+        day = int(m.group(2))
+        return pd.Timestamp(year=year, month=month, day=day)
+    m2 = re.search(r"([A-Za-z]{3})\s*(\d{4})", s)
+    if m2:
+        month = _MONTH_MAP.get(m2.group(1).lower(), 1)
+        return pd.Timestamp(year=int(m2.group(2)), month=month, day=1)
+    m3 = re.search(r"([A-Za-z]{3})", s)
+    if m3:
+        month = _MONTH_MAP.get(m3.group(1).lower(), 1)
+        return pd.Timestamp(year=year, month=month, day=1)
+    return pd.Timestamp(year=2099, month=1, day=1)
+
+
 def calculate_objection_by_webinar(objections: pd.DataFrame) -> pd.DataFrame:
-    ct = pd.crosstab(objections["webinar_date"], objections["category"])
-    # Melt into long format for grouped bar chart
+    df = objections.dropna(subset=["webinar_date"]).copy()
+    if df.empty:
+        return pd.DataFrame(columns=["webinar_date", "category", "count"])
+    df["_sort"] = df["webinar_date"].apply(_parse_webinar_sort_key)
+    date_order = (
+        df[["webinar_date", "_sort"]]
+        .drop_duplicates("webinar_date")
+        .sort_values("_sort")["webinar_date"]
+        .tolist()
+    )
+    ct = pd.crosstab(df["webinar_date"], df["category"])
+    ct = ct.reindex(date_order)
     ct = ct.reset_index().melt(id_vars="webinar_date", var_name="category", value_name="count")
-    return ct[ct["count"] > 0].reset_index(drop=True)
+    ct = ct[ct["count"] > 0].reset_index(drop=True)
+    ct["webinar_date"] = pd.Categorical(ct["webinar_date"], categories=date_order, ordered=True)
+    return ct
 
 
-def classify_recoverability(objections: pd.DataFrame) -> pd.DataFrame:
-    df = objections.copy()
+def parse_child_age_bucket(age_value) -> str:
+    if pd.isna(age_value):
+        return "Unknown"
+    s = str(age_value).strip()
+    if not s or s.upper() == "N/S":
+        return "Unknown"
+    s_clean = re.sub(r"\s*(yo|y/o|yrs?|years?)\s*$", "", s, flags=re.I).strip()
+    try:
+        n = float(s_clean)
+    except ValueError:
+        m = re.match(r"(\d+)\s*[-–]\s*(\d+)", s_clean)
+        if m:
+            n = (int(m.group(1)) + int(m.group(2))) / 2
+        else:
+            m2 = re.search(r"(\d+)", s_clean)
+            if m2:
+                n = float(m2.group(1))
+            else:
+                return "Unknown"
+    if n <= 3:
+        return "0-3"
+    if n <= 6:
+        return "4-6"
+    if n <= 9:
+        return "7-9"
+    if n <= 12:
+        return "10-12"
+    return "13+"
 
-    def _classify(row):
-        cat = row.get("category", "")
-        notes = str(row.get("notes", "")).lower()
-        if cat in RECOVERABLE_CATEGORIES:
-            return "Recoverable"
-        if cat == "Financial Constraint":
-            if any(kw in notes for kw in POSSIBLY_RECOVERABLE_KEYWORDS):
-                return "Possibly Recoverable"
-            return "Unlikely"
-        return "Unlikely"
 
-    df["recoverable"] = df.apply(_classify, axis=1)
-    return df
+_CHILD_ISSUE_PATTERNS = [
+    (r"tantrum|behavio", "Tantrums / Behavior"),
+    (r"speech|language|non.verbal|communication|can't write", "Speech / Language"),
+    (r"focus|attention|adhd|sit still", "Focus / ADHD"),
+    (r"asd|autism|autistic", "Autism / ASD"),
+    (r"meltdown|emotional|anxiety", "Emotional Regulation"),
+    (r"school refusal|timid at school|hits at home", "School Issues"),
+    (r"motor|(?<!\w)ot(?!\w)|occupational", "Motor / OT"),
+    (r"epilepsy|brain surgery", "Neurological"),
+    (r"learning delay|slow writing", "Learning Delays"),
+]
+
+_CHILD_ISSUE_SKIP = re.compile(
+    r"not stated|too young|educator|exploring parenting|braingym|"
+    r"caregiver|exhaustion|mental.*health|single parent|mandarin|puchong",
+    re.I,
+)
+
+_PARENT_SITUATION_PATTERNS = [
+    (r"single mom|single parent|i'm alone", "Single Parent"),
+    (r"sahm|housewife|homemaker|stay.at.home|not working", "Stay-at-Home Parent"),
+    (r"husband jobless|spouse unemployed|husband.*not support", "Spouse Unemployed"),
+    (r"grandma|grandfather|caregiver.*grand", "Grandparent Caregiver"),
+    (r"can't afford|cannot afford|budget|credit maxed|loan to settle|financially dependent",
+     "Financial Stress"),
+]
 
 
 def calculate_child_profile(objections: pd.DataFrame) -> dict:
-    # Age distribution — bucket into ranges
-    ages = objections["child_age"].dropna()
-    if len(ages):
-        def _age_bucket(a):
-            if a <= 3:
-                return "0–3"
-            if a <= 6:
-                return "4–6"
-            if a <= 9:
-                return "7–9"
-            if a <= 12:
-                return "10–12"
-            return "13+"
 
-        bucket_order = ["0–3", "4–6", "7–9", "10–12", "13+"]
-        buckets = ages.apply(_age_bucket).value_counts().reindex(bucket_order, fill_value=0)
-        age_df = buckets.reset_index()
-        age_df.columns = ["age_group", "count"]
-    else:
-        age_df = pd.DataFrame(columns=["age_group", "count"])
+    bucket_order = ["0-3", "4-6", "7-9", "10-12", "13+", "Unknown"]
+    buckets = objections["child_age"].apply(parse_child_age_bucket)
+    age_counts = buckets.value_counts().reindex(bucket_order, fill_value=0)
+    age_df = age_counts.reset_index()
+    age_df.columns = ["age_group", "count"]
 
-    # Top child issues — split comma-separated values and count
-    issues = objections["child_issue"].dropna()
     issue_counts: dict[str, int] = {}
-    for val in issues:
-        for part in str(val).split(","):
-            part = part.strip()
-            if part and not part.lower().startswith("not stated"):
-                issue_counts[part] = issue_counts.get(part, 0) + 1
+    for val in objections["child_issue"].dropna():
+        text = str(val)
+        if _CHILD_ISSUE_SKIP.search(text):
+            continue
+        for pattern, label in _CHILD_ISSUE_PATTERNS:
+            if re.search(pattern, text, re.I):
+                issue_counts[label] = issue_counts.get(label, 0) + 1
     issue_df = (
         pd.DataFrame(list(issue_counts.items()), columns=["issue", "count"])
         .sort_values("count", ascending=False)
-        .head(10)
+        .head(8)
         .reset_index(drop=True)
     )
 
-    return {"age_distribution": age_df, "top_issues": issue_df}
+    sit_counts: dict[str, int] = {}
+    for _, row in objections.iterrows():
+        combined = " ".join(
+            str(row.get(c, "")) for c in ["notes", "child_issue"] if pd.notna(row.get(c))
+        )
+        if not combined.strip():
+            continue
+        for pattern, label in _PARENT_SITUATION_PATTERNS:
+            if re.search(pattern, combined, re.I):
+                sit_counts[label] = sit_counts.get(label, 0) + 1
+    sit_df = (
+        pd.DataFrame(list(sit_counts.items()), columns=["situation", "count"])
+        .sort_values("count", ascending=False)
+        .reset_index(drop=True)
+    )
+
+    return {"age_distribution": age_df, "child_issues": issue_df, "parent_situations": sit_df}
 
 
 def calculate_objection_summary(objections: pd.DataFrame) -> dict:
@@ -504,19 +577,11 @@ def calculate_objection_summary(objections: pd.DataFrame) -> dict:
     breakdown = calculate_objection_breakdown(objections)
     top_cat = breakdown.iloc[0]["category"] if len(breakdown) else "N/A"
     top_pct = breakdown.iloc[0]["pct"] if len(breakdown) else 0.0
-
-    classified = classify_recoverability(objections)
-    recoverable = int((classified["recoverable"] != "Unlikely").sum())
-    recoverable_pct = round(recoverable / total * 100, 1) if total else 0.0
-
-    webinar_batches = objections["webinar_date"].nunique()
-
+    webinar_batches = int(objections["webinar_date"].nunique())
     return {
         "total": total,
         "top_category": top_cat,
         "top_category_pct": top_pct,
-        "recoverable_count": recoverable,
-        "recoverable_pct": recoverable_pct,
         "webinar_batches": webinar_batches,
     }
 
