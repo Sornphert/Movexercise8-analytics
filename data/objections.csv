@@ -1,135 +1,509 @@
-name,phone,webinar_date,primary_objection,category,child_issue,child_age,notes
+"name","phone","webinar_date","primary_objection","category","child_issue","child_age","notes"
 "Logavani
-+60 14-773 5680",,Mar 9-10 2026,Can't commit now (timing),Not Ready / Timing,"Focus, tantrums, communication",N/S,Single mom. 'Wish to join but not now'. Open to future offer.
++60 14-773 5680","","Mar 9-10 2026","Can't commit now (timing)","Not Ready / Timing","Focus, tantrums, communication","N/S","Single mom. 'Wish to join but not now'. Open to future offer."
 "Wanitha
-+60 12-613 3268",,Mar 9-10 2026,Financial — can't afford RM232/mo,Financial Constraint,"Learning delays, can't write, short attention (son)",6,Budget RM100-150/mo. 'Let my burden be mine.' Genuinely cannot afford.
++60 12-613 3268","","Mar 9-10 2026","Financial — can't afford RM232/mo","Financial Constraint","Learning delays, can't write, short attention (son)","6","Budget RM100-150/mo. 'Let my burden be mine.' Genuinely cannot afford."
 "Christine
-+60 12-424 8450",,Mar 9-10 2026,Skepticism — past programs failed,Skepticism,ADHD+autism→intellectual disability (daughter),8,'Everyone says effective but didn't deliver.' Silent after consultation offer.
++60 12-424 8450","","Mar 9-10 2026","Skepticism — past programs failed","Skepticism","ADHD+autism→intellectual disability (daughter)","8","'Everyone says effective but didn't deliver.' Silent after consultation offer."
 "Zach
-+60 14-903 4698",,Mar 9-10 2026,Spouse not convinced,Spouse Buy-in,Child age 1 — too young concern,1,"Father interested, wife says too young. Offered deposit+consultation."
++60 14-903 4698","","Mar 9-10 2026","Spouse not convinced","Spouse Buy-in","Child age 1 — too young concern","1","Father interested, wife says too young. Offered deposit+consultation."
 "David
-+60 16-539 0813",,Mar 9-10 2026,"Financial — legal case, card maxed",Financial Constraint,Not stated,N/S,Legal case. Credit maxed. 'Need to be careful where to put funds.'
++60 16-539 0813","","Mar 9-10 2026","Financial — legal case, card maxed","Financial Constraint","Not stated","N/S","Legal case. Credit maxed. 'Need to be careful where to put funds.'"
 "Pris
-+60 14-390 5111",,Mar 9-10 2026,Financial — tight budget,Financial Constraint,Not stated,N/S,'Tight on budget.' Went silent.
++60 14-390 5111","","Mar 9-10 2026","Financial — tight budget","Financial Constraint","Not stated","N/S","'Tight on budget.' Went silent."
 "Suria
-+60 12-208 1100",,Mar 9-10 2026,Spouse unavailable (travelling),Spouse Buy-in,Not stated,N/S,Maybank CC. Husband travelling. No reply after follow-up.
++60 12-208 1100","","Mar 9-10 2026","Spouse unavailable (travelling)","Spouse Buy-in","Not stated","N/S","Maybank CC. Husband travelling. No reply after follow-up."
 "Dhadchayini
-+60 12-328 2222",,Dec 2025→Mar 2026,Financial — hefty investment,Financial Constraint,"Students with ADHD, autism (educator)",,Kindergarten owner Bentong. TTT interest. Re-engaged Mar for bootcamp.
++60 12-328 2222","","Dec 2025→Mar 2026","Financial — hefty investment","Financial Constraint","Students with ADHD, autism (educator)","","Kindergarten owner Bentong. TTT interest. Re-engaged Mar for bootcamp."
 "Nisha
-+60 16-736 7974",,Dec 16-17 2025,Financial — unable to afford,Financial Constraint,"Non-verbal Level 3 Autism, gov therapy",N/S,Level 3 Autism child. 'Unable to commit.' Re-invited Jan+Mar.
++60 16-736 7974","","Dec 16-17 2025","Financial — unable to afford","Financial Constraint","Non-verbal Level 3 Autism, gov therapy","N/S","Level 3 Autism child. 'Unable to commit.' Re-invited Jan+Mar."
 "Kavitha
-+60 17-500 0252",,Mar 10 2026,Financial — single mom,Financial Constraint,Not stated,N/S,"Single mom. No CC. Was unwell, missed Mar 16. Still engaging."
++60 17-500 0252","","Mar 10 2026","Financial — single mom","Financial Constraint","Not stated","N/S","Single mom. No CC. Was unwell, missed Mar 16. Still engaging."
 "Azura
-+60 12-305 0041",,Mar 17 2026,Unsure if suitable,Skepticism,"Mild ASD+ADHD, 15yo, hits classmates",15,Very recent. Described issues in detail. No price discussion yet.
++60 12-305 0041","","Mar 17 2026","Unsure if suitable","Skepticism","Mild ASD+ADHD, 15yo, hits classmates","15","Very recent. Described issues in detail. No price discussion yet."
 "Sanrhinikasi
-+60 12-601 1971",,Mar 16-17 2026,Pending — asked for pricing,Still Considering,"Meltdowns, repetitions",N/S,'May God bless you.' Got program breakdown. Pending.
++60 12-601 1971","","Mar 16-17 2026","Pending — awaiting response after pricing","Still Considering","Meltdowns, repetitions","N/S","'May God bless you.' Got program breakdown. Pending."
 "Erica
-+60 16-217 8068",,Mar 16-17 2026,Not convinced method works,Skepticism,"7yo son — timid at school, hits at home",7,"Most analytical lead. Asked about tax relief, discounts, co-regulation theory."
++60 16-217 8068","","Mar 16-17 2026","Not convinced method works","Skepticism","7yo son — timid at school, hits at home","7","Most analytical lead. Asked about tax relief, discounts, co-regulation theory."
 "Joey
-+60 12-478 7332",,Mar 9-10 2026,Still considering — vague,Still Considering,Not stated,N/S,HSBC card. Payment link issues. Very few replies.
++60 12-478 7332","","Mar 9-10 2026","Went silent — payment link issues, very few replies","Went Silent","Not stated","N/S","HSBC card. Payment link issues. Very few replies."
 "Jess
-+60 13-314 3569",,Mar 9-10 2026,"Financial — SAHM, single income",Financial Constraint,Not stated,N/S,SAHM. 'Too many activities.' Offered consultation. Still engaging.
++60 13-314 3569","","Mar 9-10 2026","Financial — SAHM, single income","Financial Constraint","Not stated","N/S","SAHM. 'Too many activities.' Offered consultation. Still engaging."
 "Emma
-+60 12-902 0878",,Mar 12 2026,Husband doubts effectiveness,Spouse Buy-in,Not stated,N/S,"Asked about format, timeline, family access. Husband 'doubting efficiency'."
++60 12-902 0878","","Mar 12 2026","Husband doubts effectiveness","Spouse Buy-in","Not stated","N/S","Asked about format, timeline, family access. Husband 'doubting efficiency'."
 "Grace
-+60 12-498 5021",,Mar 17 2026,Financial — homemaker,Financial Constraint,Not stated,N/S,Homemaker. Commitments ending in months. High intent.
++60 12-498 5021","","Mar 17 2026","Financial — homemaker","Financial Constraint","Not stated","N/S","Homemaker. Commitments ending in months. High intent."
 "Joyce
-+60 16-640 4068",,Mar 9-10 2026,Went silent — unknown,Went Silent,Not stated,N/S,Asked about schedule then went silent. No response to any follow-up.
++60 16-640 4068","","Mar 9-10 2026","Went silent — unknown","Went Silent","Not stated","N/S","Asked about schedule then went silent. No response to any follow-up."
 "Wayne
-+60 12-658 9568",,Mar 9-10 2026,Not interested at this time,Not Ready / Timing,Focus — son plays games instead of studying,N/S,"'Not interested at this time, bringing topic to family for debate.' Valued session."
++60 12-658 9568","","Mar 9-10 2026","Not interested at this time","Not Ready / Timing","Focus — son plays games instead of studying","N/S","'Not interested at this time, bringing topic to family for debate.' Valued session."
 "Farah
-+60 11-2842 1992",,Feb-Mar 2026,Budget + time + 2yr professional training,Financial Constraint,"Exploring parenting (child 4yo, healthy)",4,Health practitioner from Sabah. Liked neuroscience. Already in 2yr prof training.
++60 11-2842 1992","","Feb-Mar 2026","Budget + time + 2yr professional training","Financial Constraint","Exploring parenting (child 4yo, healthy)","4","Health practitioner from Sabah. Liked neuroscience. Already in 2yr prof training."
 "Agnes
-+60 12-226 6223",,Dec 2025,Financial — can't afford,Financial Constraint,Not stated (has sister interested too),N/S,"Paid deposit Dec, asked refund Dec 30. Refunded Jan 7. Re-invited to CNY event."
++60 12-226 6223","","Dec 2025","Financial — can't afford","Financial Constraint","Not stated (has sister interested too)","N/S","Paid deposit Dec, asked refund Dec 30. Refunded Jan 7. Re-invited to CNY event."
 "Eric
-+60 12-653 4063",,Feb 25-26 2026,Wants to research first,Skepticism,Not stated,N/S,'Decided to do research first.' Offered consultation — went silent.
++60 12-653 4063","","Feb 25-26 2026","Wants to research first","Skepticism","Not stated","N/S","'Decided to do research first.' Offered consultation — went silent."
 "Stephanie (Shah Alam)
-+60 17-213 8585",,Feb 25-26 2026,Wants physical class,Prefers Physical,Not stated,N/S,Shah Alam. Repeatedly asked about physical class. Went silent.
++60 17-213 8585","","Feb 25-26 2026","Wants physical class","Prefers Physical","Not stated","N/S","Shah Alam. Repeatedly asked about physical class. Went silent."
 "Parvin
-+60 16-515 0726",,Feb 25-26 2026,Financial — single parent,Financial Constraint,Not stated (single parent),N/S,'I can't afford coz I'm alone taking care of my son.' Asked about ebook.
++60 16-515 0726","","Feb 25-26 2026","Financial — single parent","Financial Constraint","Not stated (single parent)","N/S","'I can't afford coz I'm alone taking care of my son.' Asked about ebook."
 "Grandma lead
-+60 16-410 5808",,Feb 25-26 2026,Busy + lots of commitments,Not Ready / Timing,Caregiver for granddaughter (part-time),N/S,Active grandma. Granddaughter doesn't stay 24/7. Went quiet after ebook.
++60 16-410 5808","","Feb 25-26 2026","Busy + lots of commitments","Not Ready / Timing","Caregiver for granddaughter (part-time)","N/S","Active grandma. Granddaughter doesn't stay 24/7. Went quiet after ebook."
 "Rina
-+60 13-398 1263",,Feb 25-26 2026,Financial,Financial Constraint,Not stated,N/S,Very minimal engagement. Financial concern. Went silent.
++60 13-398 1263","","Feb 25-26 2026","Financial","Financial Constraint","Not stated","N/S","Very minimal engagement. Financial concern. Went silent."
 "Shanti
-+60 12-545 2913",,Feb 25-26 2026,"Financial — housewife, mother supporting family",Financial Constraint,"Mental+physical health (anxiety, depression)",N/S,'Can't work due to anxiety and depression.' Mother supporting family. Truly can't.
++60 12-545 2913","","Feb 25-26 2026","Financial — housewife, mother supporting family","Financial Constraint","Mental+physical health (anxiety, depression)","N/S","'Can't work due to anxiety and depression.' Mother supporting family. Truly can't."
 "Stephanie (Nov)
-+60 16-346 2206",,Nov 25 2025,Financial — husband jobless 3mo,Financial Constraint,Not stated,N/S,Husband jobless 3 months. Declined twice. Left community group.
++60 16-346 2206","","Nov 25 2025","Financial — husband jobless 3mo","Financial Constraint","Not stated","N/S","Husband jobless 3 months. Declined twice. Left community group."
 "Mei Ling
-+60 10-294 7089",,Feb 25-26 2026,Worried about consistency,Skepticism,Not stated,N/S,Chose 6mo plan. Then said worried won't be consistent. Still considering.
++60 10-294 7089","","Feb 25-26 2026","Worried about consistency","Skepticism","Not stated","N/S","Chose 6mo plan. Then said worried won't be consistent. Still considering."
 "Lina
-+60 12-529 2610",,Feb 25-26 2026,Financial — salary not in yet,Financial Constraint,Exhaustion as parent,N/S,"'Can't use money now, need to roll it.' Said will come back after 28th."
++60 12-529 2610","","Feb 25-26 2026","Financial — salary not in yet","Financial Constraint","Exhaustion as parent","N/S","'Can't use money now, need to roll it.' Said will come back after 28th."
 "Aisyah
-+60 10-464 6293",,Feb 25-26 2026,Unclear about program,Skepticism,Not stated,N/S,Asked about price and replay access. Went silent after.
++60 10-464 6293","","Feb 25-26 2026","Unclear about program","Skepticism","Not stated","N/S","Asked about price and replay access. Went silent after."
 "Siti
-+60 16-525 6226",,Feb 25-26 2026,Asked about monthly payment,Still Considering,Not stated,N/S,Asked about monthly payment. Never replied to options.
++60 16-525 6226","","Feb 25-26 2026","Asked about monthly payment, never replied","Went Silent","Not stated","N/S","Asked about monthly payment. Never replied to options."
 "Huda
-+60 19-314 1409",,Feb 25-26 2026,Financial — husband jobless 1yr,Financial Constraint,Child needs OT (wanted to claim),N/S,Husband jobless 1yr. 'Cannot afford unless I can claim as OT.' Saved payment link.
++60 19-314 1409","","Feb 25-26 2026","Financial — husband jobless 1yr","Financial Constraint","Child needs OT (wanted to claim)","N/S","Husband jobless 1yr. 'Cannot afford unless I can claim as OT.' Saved payment link."
 "Peggy
-+60 16-229 1160",,Nov 12 2025,Wants face-to-face only,Prefers Physical,Not stated (Puchong local),N/S,Puchong local. Only interested in physical sessions. Referred to Daphnie direct.
++60 16-229 1160","","Nov 12 2025","Wants face-to-face only","Prefers Physical","Not stated (Puchong local)","N/S","Puchong local. Only interested in physical sessions. Referred to Daphnie direct."
 "Siew Mei
-+60 12-328 6196",,Feb 10 2026,Spouse buy-in needed,Spouse Buy-in,Not stated,N/S,"'Spoken to John, need to discuss with spouse.' Wants physical. Invited to CNY."
++60 12-328 6196","","Feb 10 2026","Spouse buy-in needed","Spouse Buy-in","Not stated","N/S","'Spoken to John, need to discuss with spouse.' Wants physical. Invited to CNY."
 "Jin
-+60 11-2686 8667",,Jan 28-29 2026,Prefers consultation over online,Prefers Physical,Not stated (Mandarin preferred),N/S,Wanted Mandarin class. Asked about consultation. Said 'I'm not consistent.'
++60 11-2686 8667","","Jan 28-29 2026","Prefers consultation over online","Prefers Physical","Not stated (Mandarin preferred)","N/S","Wanted Mandarin class. Asked about consultation. Said 'I'm not consistent.'"
 "Yen
-+60 14-944 5104",,Feb 9-10 2026,Spouse buy-in — husband outstation,Spouse Buy-in,Not stated,N/S,Husband at funeral then outstation. 'Financially dependent on husband.' Will update.
++60 14-944 5104","","Feb 9-10 2026","Spouse buy-in — husband outstation","Spouse Buy-in","Not stated","N/S","Husband at funeral then outstation. 'Financially dependent on husband.' Will update."
 "Shirey
-+60 12-692 8968",,Jan 28-29 2026,Prefers physical — child is complex case,Prefers Physical,Epilepsy+brain surgery 2024,N/S,"Epilepsy child, brain surgery 2024. Seri Kembangan. Wants face-to-face."
++60 12-692 8968","","Jan 28-29 2026","Prefers physical — child is complex case","Prefers Physical","Epilepsy+brain surgery 2024","N/S","Epilepsy child, brain surgery 2024. Seri Kembangan. Wants face-to-face."
 "Dee
-+60 17-870 8712",,Feb 9-10 2026,Not purchasing — more of a supporter,Other,Not stated (braingym background),N/S,Former braingym mum. Amazed by Daphnie. Tried to refer friends. Not a buyer.
++60 17-870 8712","","Feb 9-10 2026","Not purchasing — more of a supporter","Other","Not stated (braingym background)","N/S","Former braingym mum. Amazed by Daphnie. Tried to refer friends. Not a buyer."
 "Aida
-+60 11-3159 9515",,Feb 9-10 2026,"Financial — housewife, husband unsupportive",Financial Constraint,7yo son — possibly autistic,7,Housewife. Husband 'not support to help his son.' BUT husband bought the course!
++60 11-3159 9515","","Feb 9-10 2026","Financial — housewife, husband unsupportive","Financial Constraint","7yo son — possibly autistic","7","Housewife. Husband 'not support to help his son.' BUT husband bought the course!"
 "Nora
-+60 17-918 1878",,Feb 9-10 2026,Financial — too many monthly commitments,Financial Constraint,"ADHD 9yo girl — lack focus, slow writing",9,"'Really sorry, really can't.' ADHD daughter good at math but slow writing."
++60 17-918 1878","","Feb 9-10 2026","Financial — too many monthly commitments","Financial Constraint","ADHD 9yo girl — lack focus, slow writing","9","'Really sorry, really can't.' ADHD daughter good at math but slow writing."
 "Liza
-+60 19-676 0397",,Jan 14 2026,Financial — price concern,Financial Constraint,Not stated,N/S,'The price.' Declined twice across batches.
++60 19-676 0397","","Jan 14 2026","Financial — price concern","Financial Constraint","Not stated","N/S","'The price.' Declined twice across batches."
 "Nita
-+60 14-356 9848",,Jan 28-29 2026,"Financial — no fixed income, has loan",Financial Constraint,Not stated,N/S,"'Have a loan to settle, cannot commit for extra things, only free events.'"
++60 14-356 9848","","Jan 28-29 2026","Financial — no fixed income, has loan","Financial Constraint","Not stated","N/S","'Have a loan to settle, cannot commit for extra things, only free events.'"
 "Diana
-+60 16-622 7515",,Jan 28-29 2026,"Financial — not working, husband handles everything",Financial Constraint,"Can't sit still, lack focus, frustrated during homework",N/S,Not working. Husband handles finances. Brother car accident. Spot reserved.
++60 16-622 7515","","Jan 28-29 2026","Financial — not working, husband handles everything","Financial Constraint","Can't sit still, lack focus, frustrated during homework","N/S","Not working. Husband handles finances. Brother car accident. Spot reserved."
 "Lead (VSS)
-+60 11-2832 6085",,Apr 13-14 2026,"Financial — just got VSS, looking for job",Financial Constraint,"5yo daughter cranky at home, ok at school, won't do homework",5,VSS'd. Depends on husband. Husband said try movement first before paying. 'May not join first for now.'
++60 11-2832 6085","","Apr 13-14 2026","Financial — just got VSS, looking for job","Financial Constraint","5yo daughter cranky at home, ok at school, won't do homework","5","VSS'd. Depends on husband. Husband said try movement first before paying. 'May not join first for now.'"
 "Grace (new)
-+60 16-876 1048",,Apr 13-14 2026,Not ready — taking care of small baby,Not Ready / Timing,Not stated (has small baby),N/S,Different Grace from Mar batch. Taking care of small baby. Said 'will try MOVEXERCISE8 first.' Brief replies.
++60 16-876 1048","","Apr 13-14 2026","Not ready — taking care of small baby","Not Ready / Timing","Not stated (has small baby)","N/S","Different Grace from Mar batch. Taking care of small baby. Said 'will try MOVEXERCISE8 first.' Brief replies."
 "Alicia
-+60 12-205 6188",,Apr 13-14 2026,Prefers physical + full day too tiring + price,Prefers Physical,Not stated,N/S,Asked for address. Prefers physical not online. Said 'full day is too tiring.' Also price concern. Went quiet after explanation.
++60 12-205 6188","","Apr 13-14 2026","Prefers physical + full day too tiring + price","Prefers Physical","Not stated","N/S","Asked for address. Prefers physical not online. Said 'full day is too tiring.' Also price concern. Went quiet after explanation."
 "Lead (enquiry)
-+60 12-241 1250",,Apr 13-14 2026,Sat/Sun not free to attend,Not Ready / Timing,Not stated,N/S,Asked detailed Qs about structure. Said 'will pass thanks' — Sat/Sun not free. Didn't accept recorded alternative.
++60 12-241 1250","","Apr 13-14 2026","Sat/Sun not free to attend","Not Ready / Timing","Not stated","N/S","Asked detailed Qs about structure. Said 'will pass thanks' — Sat/Sun not free. Didn't accept recorded alternative."
 "Hairiniza
-+60 12-254 0043",,Apr 13-14 2026,No clear objection yet — still in conversation,Still Considering,8yo son cheating/dishonest. Husband is strict ('garang'),8,Asked about son's cheating in Zoom. Said she's soft but husband is strict. Conversation still open — no price discussed.
++60 12-254 0043","","Apr 13-14 2026","No clear objection — conversation still open","Still Considering","8yo son cheating/dishonest. Husband strict ('garang')","8","Asked about son's cheating in Zoom. Husband is strict. No price discussed yet."
 "Punita
-+60 17-633 5387",,Apr 13-14 2026,Prefers physical coaching,Prefers Physical,Not stated,N/S,UOB card. Payment attempted but failed. Said 'I prefer physical coaching.' Deposit offered — went silent. 'Still thinking.'
++60 17-633 5387","","Apr 13-14 2026","Prefers physical coaching","Prefers Physical","Not stated","N/S","UOB card. Payment attempted but failed. Said 'I prefer physical coaching.' Deposit offered — went silent. 'Still thinking.'"
 "Geetha
-+60 17-335 5459",,Apr 13-14 2026,Financial + husband in Penang (managing alone),Financial Constraint,"3 boys (16,13,11). 13yo can't focus, slow copying, prefers games, falls asleep during homework",13,"Husband works in Penang. She manages kids alone in Shah Alam. 'Cost is an issue.' Said 'not for now, will come back when ready.'"
++60 17-335 5459","","Apr 13-14 2026","Financial + husband in Penang (managing alone)","Financial Constraint","3 boys (16,13,11). 13yo can't focus, slow copying, prefers games, falls asleep during homework","13","Husband works in Penang. She manages kids alone in Shah Alam. 'Cost is an issue.' Said 'not for now, will come back when ready.'"
 "Angela
-+60 12-227 2729",,Apr 13-14 2026,Not fully ready — process and engagement concern,Not Ready / Timing,"2 kids (15,13) — slow learning, cannot focus, not confident","15,13",Attended Day 1+2. Said 'regret to inform I decided not to sign up.' Reason: 'not fully ready — the process and engagement.' Politely closed.
++60 12-227 2729","","Apr 13-14 2026","Not fully ready — process and engagement concern","Not Ready / Timing","2 kids (15,13) — slow learning, cannot focus, not confident","15,13","Attended Day 1+2. Said 'regret to inform I decided not to sign up.' Reason: 'not fully ready — the process and engagement.' Politely closed."
 "Jagjit Kaur
-+60 12-969 7610",,Apr 13-14 2026,Went silent after typing 'Move',Went Silent,Not stated (asked about 1-to-1 at centre),N/S,"Pre-registered. Asked if session for self or kids, wanted 1-to-1 at centre. Typed 'Move' Day 2 then went silent."
++60 12-969 7610","","Apr 13-14 2026","Went silent after typing 'Move'","Went Silent","Not stated (asked about 1-to-1 at centre)","N/S","Pre-registered. Asked if session for self or kids, wanted 1-to-1 at centre. Typed 'Move' Day 2 then went silent."
 "Hasnida
-+60 13-266 6611",,Mar 31-Apr 1 2026,Financial — already paying RM10k/yr for Wynskid,Financial Constraint,14yo daughter with moderate ADHD — focus + behaviour,14,Daughter in Wynskid (RM10k/yr) + private school. 'Really tight at my side.' Also said session felt repetitive. Referred friends though — warm advocate.
++60 13-266 6611","","Mar 31-Apr 1 2026","Financial — already paying RM10k/yr for Wynskid","Financial Constraint","14yo daughter with moderate ADHD — focus + behaviour","14","Daughter in Wynskid (RM10k/yr) + private school. 'Really tight at my side.' Also said session felt repetitive. Referred friends though — warm advocate."
 "CK
-+60 16-366 8772",,Apr 6-7 2026,Spouse buy-in — needs to discuss with wife,Spouse Buy-in,Cannot concentrate on sole task,N/S,Father. Attended Day 1+2. Asked about physical class for child. Discussed with wife — decided not to subscribe. No reason given.
++60 16-366 8772","","Apr 6-7 2026","Spouse buy-in — needs to discuss with wife","Spouse Buy-in","Cannot concentrate on sole task","N/S","Father. Attended Day 1+2. Asked about physical class for child. Discussed with wife — decided not to subscribe. No reason given."
 "Kelvin
-+60 19-816 6102",,Apr 6-7 2026,Financial — decided not to sign up after extended engagement,Financial Constraint,"11yo boy — can't complete homework alone, walks around, bored with schoolwork, won't read voluntarily",11,"Very engaged — asked about payment security (scam concerns), schedule, bonuses. Agreed to 12mo plan then backed out. 'Decided not to sign up for this time.'"
++60 19-816 6102","","Apr 6-7 2026","Financial — decided not to sign up after extended engagement","Financial Constraint","11yo boy — can't complete homework alone, walks around, bored with schoolwork, won't read voluntarily","11","Very engaged — asked about payment security (scam concerns), schedule, bonuses. Agreed to 12mo plan then backed out. 'Decided not to sign up for this time.'"
 "Twin mum
-+60 16-847 7399",,Apr 6-7 2026,"Financial — budget tight, no more commitments",Financial Constraint,"Twin boys — 1st boy clumsy, easy to give up",N/S,Already seeing results after 2 days of infinity exercise! Prev spent on OT+speech therapy 6yrs with no drastic change. 'Not planning to add more commitment.' Declined deposit.
++60 16-847 7399","","Apr 6-7 2026","Financial — budget tight, no more commitments","Financial Constraint","Twin boys — 1st boy clumsy, easy to give up","N/S","Already seeing results after 2 days of infinity exercise! Prev spent on OT+speech therapy 6yrs with no drastic change. 'Not planning to add more commitment.' Declined deposit."
 "Mei See
-(no phone visible)",,Apr 6-7 2026,Self-doubt about commitment + first time hearing method,Skepticism,Not stated (parent herself has focus issues),N/S,"Said 'I'm the one with focus issues, always hangat2.' First time hearing about method. Left session frustrated at home. Went silent after program details sent."
+(no phone visible)","","Apr 6-7 2026","Self-doubt about commitment + first time hearing method","Skepticism","Not stated (parent herself has focus issues)","N/S","Said 'I'm the one with focus issues, always hangat2.' First time hearing about method. Left session frustrated at home. Went silent after program details sent."
 "Vivianne
-+60 16-370 5700",,Apr 6-7 2026,Financial — single mom looking for job,Financial Constraint,Own anxiety + child can't focus on homework,N/S,Single mom job hunting. Has credit card. Said 'financially tight.' Declined to enroll. Brief.
++60 16-370 5700","","Apr 6-7 2026","Financial — single mom looking for job","Financial Constraint","Own anxiety + child can't focus on homework","N/S","Single mom job hunting. Has credit card. Said 'financially tight.' Declined to enroll. Brief."
 "Kenneth
-+60 12-385 0230",,Apr 6-7 2026,Financial — jobless 2 years,Financial Constraint,Wants to prevent children from developing mental health issues like himself,N/S,Jobless almost 2 years. Said 'time and $ is my issue.' Very self-aware about mental health cycle. Leon closed gracefully.
++60 12-385 0230","","Apr 6-7 2026","Financial — jobless 2 years","Financial Constraint","Wants to prevent children from developing mental health issues like himself","N/S","Jobless almost 2 years. Said 'time and $ is my issue.' Very self-aware about mental health cycle. Leon closed gracefully."
 "Unknown lead
-(no phone/name)",,Mar 31-Apr 2026,Financial — needs instalment but unclear,Still Considering,"Angry son, screaming for attention. Both parents working and tired.",N/S,"Asked about schedule, worried about weekend work conflict. Received ebook. Conversation context unclear — may be partial export."
+(no phone/name)","","Mar 31-Apr 2026","Weekend work conflict — can't attend","Not Ready / Timing","Not stated","N/S","Asked about schedule, worried about weekend work conflict. Received ebook."
 "Usha
-+60 14-231 8840",,Mar 31-Apr 1 2026,"Financial — overloaded, looking for permanent job",Financial Constraint,"12yo son — sleep apnea, post-surgery, anxiety, behind in studies, punished by teachers",12,"Son had brain surgery for sleep apnea. Tried CPAP. Teachers punishing him. She's also attending child psychology courses. 'Can't commit, looking for permanent job.'"
++60 14-231 8840","","Mar 31-Apr 1 2026","Financial — overloaded, looking for permanent job","Financial Constraint","12yo son — sleep apnea, post-surgery, anxiety, behind in studies, punished by teachers","12","Son had brain surgery for sleep apnea. Tried CPAP. Teachers punishing him. She's also attending child psychology courses. 'Can't commit, looking for permanent job.'"
 "Elysee
-+60 17-648 8166",,Mar 31-Apr 2 2026,Financial — budget concern,Financial Constraint,"8yo boy — tantrums during homework, focus issues, fidgeting, broken arm + fracture in 1 year, not aware of surroundings",8,Very detailed about child's issues. Said 'will pass for now.' Couldn't attend full Zoom. Budget is main blocker.
++60 17-648 8166","","Mar 31-Apr 2 2026","Financial — budget concern","Financial Constraint","8yo boy — tantrums during homework, focus issues, fidgeting, broken arm + fracture in 1 year, not aware of surroundings","8","Very detailed about child's issues. Said 'will pass for now.' Couldn't attend full Zoom. Budget is main blocker."
 "Suraya
-+60 12-414 5025",,Mar 31-Apr 2 2026,Budget + thinks she can manage (teacher),Financial Constraint,10yo son ADHD — can't sit and complete homework even 10 min,10,Teacher. Said 'I think I can still manage.' Budget is main concern. Son tested ADHD. Replied with 🙃🙃🙃🙃 to instalment pitch.
++60 12-414 5025","","Mar 31-Apr 2 2026","Budget + thinks she can manage (teacher)","Financial Constraint","10yo son ADHD — can't sit and complete homework even 10 min","10","Teacher. Said 'I think I can still manage.' Budget is main concern. Son tested ADHD. Replied with 🙃🙃🙃🙃 to instalment pitch."
 "Claire
-+60 16-201 3228",,Mar 31-Apr 1 2026,Still considering — asked about instalment then went silent,Still Considering,Not stated explicitly,N/S,Very engaged Day 1 — asked to sign up tomorrow. Asked about instalment. Joined Day 2. Then went silent after ebook survey follow-up. Time commitment concern noted.
++60 16-201 3228","","Mar 31-Apr 1 2026","Time commitment concern — went silent after Day 2","Not Ready / Timing","Not stated","N/S","Very engaged Day 1, asked to sign up. Went silent after Day 2 + ebook. Time concern."
 "Nick
-+60 16-339 8986",,Mar 31-Apr 1 2026,No time — distracted by kids' revision + wants physical (Kuching),Not Ready / Timing,P4 boy can't read BM (was in SJKC). P2 boy can't memorise timetable. Focus + tantrums + disobedience,"P4,P2",Very engaged and emotional. From Kuching — wanted physical centre. Said 'I don't even have time.' Wife spoils kids when he scolds. Kids tried infinity pattern and laughed. Warm but didn't convert.
++60 16-339 8986","","Mar 31-Apr 1 2026","No time — distracted by kids' revision + wants physical (Kuching)","Not Ready / Timing","P4 boy can't read BM (was in SJKC). P2 boy can't memorise timetable. Focus + tantrums + disobedience","P4,P2","Very engaged and emotional. From Kuching — wanted physical centre. Said 'I don't even have time.' Wife spoils kids when he scolds. Kids tried infinity pattern and laughed. Warm but didn't convert."
 "Elly
-+60 12-520 8979",,Mar 31 2026,Financial — not ready for fees,Financial Constraint,"4 kids (7,11,14,15) — teenager emotional issues","7,11,14,15",4 kids. Said 'for the fees I'm not ready yet.' Teenager emotional issues. Brief engagement.
++60 12-520 8979","","Mar 31 2026","Financial — not ready for fees","Financial Constraint","4 kids (7,11,14,15) — teenager emotional issues","7,11,14,15","4 kids. Said 'for the fees I'm not ready yet.' Teenager emotional issues. Brief engagement."
+"Christine
++60 18-2384 119","","Dec 2-3 2025","Financial — no CC/debit under own name, salary always delayed","Financial Constraint","Family not supportive","N/S","4-month saga Dec-Apr. No CC, no debit under own name. Salary always delayed. Scam fears with online payment. 'I won't give up.' Genuinely unable."
+"Lead (father)
++60 12-3226 018","","Jan 21-22 2026","Spouse refuses + lost job mid-process","Spouse Buy-in","ADHD, eye-hand coordination, can't write fast","N/S","Father very engaged. ADHD son on OT (RM1k/mo). Wife prefers offline+mandarin. Paid RM88 consultation. Then LOST JOB on day of consultation. 'Wife not agree. Now no employment. Kais kais on my own.'"
+"Lead (foreigner couple)
++60 14-9929 275","","Jan 21-22 2026","Visa uncertainty + credit card limit","Financial Constraint","Separation anxiety (homeschooled son)","N/S","Foreigner. Husband needs visa renewal by June — if not processed, bank accounts close. CC limit consumed by school fees. PAID RM200 DEPOSIT. Planning to start April. Very engaged, asked 20+ detailed questions."
+"Lead (JB, step-father)
++60 14-3198 930","","Dec 16-17 2025","Spouse (step-father) not supporting + financial — part-time unstable income","Spouse Buy-in","Not stated (her children from previous marriage)","N/S","JB-based. Paid deposit then husband (step-father) refused. Part-time unstable income. Tried to re-engage Jan+Mar — husband still uninterested. 'Temporary I do not have stable income.'"
+"Lead (police wife)
++60 13-6644 199","","Mar 16-17 2026","Financial — husband sole breadwinner (police, transferred to Terengganu)","Financial Constraint","7yo son emotional instability, sad at school, adapting difficulty. Husband transferred to Terengganu.","7","Very emotional. Son says 'mama help me, I'm sad.' Husband is police special branch, works in Terengganu (comes back weekends only). 'We really cant afford to make any extra expenses.'"
+"Lead (Puchong)
++60 12-9072 029","","Mar 23 2026","Financial — credit fully utilized, can only commit June","Financial Constraint","Not stated","N/S","Puchong local. PAID RM100 DEPOSIT. Credit card fully utilized. 'I can wait until June.' Warm lead with deposit already placed."
+"Lead (Mandarin speaker)
++60 12-9873 739","","Feb 12 2026","Prefers physical — wanted walk-in to centre","Prefers Physical","Brain development (8yo, afternoon sessions wanted)","8","Mandarin speaker. Wanted to walk-in to Daphnie's centre. Booked appointment with Daphnie directly. Asked for refund of something. Final: 'No thanks' (不了谢谢你)."
+"Lead
++60 16-2216 632","","Mar 10 2026","Still gathering info — no clear objection","Still Considering","Not stated","N/S","Admin-focused (dates, group confusion). Asked for hand/eye video. No objection surfaced."
+"Dione
++60 12-3268 386","","Dec 2-3 2025","Not ready — busy, unable to commit time","Not Ready / Timing","Not stated","N/S","Attended 2 days webinar. Said 'very good sharing.' But kept declining sessions — 'prior appointment,' 'errands,' 'won't be able to commit the time.' Long-term nurture (Dec 2025 → Apr 2026)."
+"Lead (Puchong, severe autism)
++60 16-2865 725","","Nov 25 2025","Financial — budget issue + worried can't apply for special needs daughter","Financial Constraint","Severe autism (8yo daughter), can't follow instructions","8","Puchong local. Severe autism daughter. 'Worried I can't apply for my kids, especially my special need daughter.' Budget issue. Asked about physical centre. Long funnel (Nov 2025 → Mar 2026)."
+"Cynthia Lai
++60 14-3245 660","","Mar 23 2026","Actively scheduling 1-to-1 consultation with Daphnie","Still Considering","Not stated","N/S","Submitted screening form. Scheduling 1-to-1, needs to apply leave. Wants morning slot."
+"Lead
++60 16-2259 771","","Mar 9-10 2026","Financial — tight schedule + not sure can commit","Not Ready / Timing","Not stated (asked about HSBC instalment)","N/S","HSBC card. Asked about 6/12mo instalment. 'My schedule is quite tight. I am afraid I couldn't commit it.' Wanted a buddy to attend. Said will decide after Day 2."
+"Lead (sole breadwinner, church)
++60 13-8250 201","","Mar 23-24 2026","Financial — sole breadwinner + weekends occupied (church/Sunday school)","Financial Constraint","2 daughters (6,9) — don't ask permission, emotional, talkative","6,9","Only breadwinner. Sundays occupied with church+Sunday school. 'Great program but still quite pricey.' PAID RM200 DEPOSIT. Asked about certificates and ebook."
+"Lead (working parents)
++60 14-9442 058","","Mar 23-29 2026","Financial — working parents need to allocate budget, wanted face-to-face first","Financial Constraint","8yo son — good in studies/memory but loses focus + can't control emotions","8","Working parents. Wanted face-to-face assessment with Daphnie before joining. 'Let me plan my budget.' Came back after holiday, agreed to RM232/mo. Asked to pay on 10th April (payday). WARM — likely converting."
+"Lead (terminally ill sister)
++60 19-2631 955","","Mar 23-25 2026","Not ready — eldest sister terminally ill, priority elsewhere","Not Ready / Timing","Not stated","N/S","Very engaged with ebook/webinar content. 'My eldest sister is terminally ill. I need time to spend with her. She is my priority.' Asked detailed questions about workshop hours. Said 'when I have time to commit, I will communicate with u.'"
+"Lead (grandma)
++60 16-2292 012","","Jan 28-29 2026","Not the decision-maker — grandson cared for by other grandma, parents need convincing","Other","Grandson (cared for by other grandma at daycare)","N/S","Grandma. Grandson under other grandma's care. 'They have to be convinced themselves before they would commit time & money. They are very busy people!' Wants promo link to forward to parents."
+"Lead (Daphnie's schoolmate)
++60 19-3258 992","","Nov 12-14 2025","Health issues — injured ankle/knee, blood pressure, migraine","Not Ready / Timing","13yo daughter emotional dysregulation","13","Daphnie's IJ Convent schoolmate. Late-age parenting. Has fall injury (can't do elbow-to-knee). Bad migraine + blood pressure. Wanted therapy for 13yo daughter first. 'Count me in first please.' Status unclear — health interrupted."
+"Lead (educator, neurodevelopment)
++60 16-6639 454","","Feb 9-10 2026","Not target buyer — already in RM8k program, no special needs children","Other","None (educator coordinating neurodevelopment exercises)","N/A","Educator. Already paid RM8k for another program. 'My plate is too full. I don't have special needs children.' Referred friends with GDD child. Asked about TTT. Supporter, not buyer."
+"Lead
++60 16-9236 892","","Jan 21-22 2026","Not considering yet — complicated issues, husband no interest","Spouse Buy-in","Complicated issues (unspecified)","N/S","Husband 'has no interest at all.' Said 'not considering yet, complicated issues, let us try to figure out first.' Only came for the ebook. Cold lead."
+"Lead (long distance couple)
++60 16-5729 789","","Jan 21-23 2026","Spouse buy-in — husband long distance, no phone access at work","Spouse Buy-in","Tantrum/meltdown, hitting, separation anxiety, doesn't want school","N/S","Child's tantrum 'became worst, got stronger, she'll hit me.' Suspects attachment issue. Husband long distance, no phone access at work. 'I'll forward to my husband.' Asked about processing fees. Went silent after."
+"Lead
++60 10-2608 139","","Mar 16 2026","Wants physical class","Prefers Physical","Not stated","N/S","'Can know more about offline class?' (16 msgs)"
+"Lead
++60 10-3224 444","","Jan 21 2026","Financial — tight budget","Financial Constraint","Not stated","N/S","'There is another webinar tomorrow right? Let’s see how it is to decide' (28 msgs)"
+"Lead
++60 10-3790 865","","Feb 10 2026","No engagement — 8 msgs, no substantive content","Went Silent","Not stated","N/S","(8 msgs) No substantive exchange."
+"Lead
++60 10-5748 680","","Apr 08 2026","Asked to switch to business number, no follow-up","Went Silent","Not stated","N/S","'Hi, please add me on my business number instead of private number' (12 msgs)"
+"Lead
++60 10-9302 702","","Apr 02 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(2 msgs)"
+"Lead
++60 11-1058 4628","","Mar 29 2026","Only asked about ebook, 2 msgs","Went Silent","Not stated","N/S","'I joined the webinar but did not receive my free copy of book.' (2 msgs)"
+"Lead
++60 11-1077 2823","","Apr 07 2026","Wants physical class","Prefers Physical","Not stated","N/S","(10 msgs)"
+"Lead
++60 11-1197 2489","","Jan 28 2026","Wants physical class","Prefers Physical","Not stated","N/S","(10 msgs)"
+"Lead
++60 11-2691 6012","","Jan 28 2026","Financial — tight budget","Financial Constraint","Not stated","N/S","'Thank you for letting me know ☺️ I don't have the budget to join right now, but I'm interested and may join in the futur' (24 msgs)"
+"Lead
++60 11-2880 1120","","Apr 08 2026","Auto-reply from business (Eastupia), not a lead","Went Silent","Not stated","N/S","Auto-reply: 'Thank you for contacting Eastupia.' Not a real conversation."
+"Lead
++60 11-3191 0889","","Jan 21 2026","Needs to discuss with spouse","Spouse Buy-in","Not stated","N/S","'Do we have installment for the promo?' (18 msgs)"
+"Lead
++60 11-5118 8753","","Apr 01 2026","Only reported ebook link error, no purchase discussion","Went Silent","Not stated","N/S","'Hi Leon, I can't access the free e-book link' (6 msgs)"
+"Lead
++60 11-5500 3310","","Feb 25 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(6 msgs)"
+"Lead
++60 11-6064 2523","","Apr 06 2026","Asked about instalment plan — financial concern","Financial Constraint","Not stated","N/S","'Please can I find out on the installment plan Please' (8 msgs). Went silent after."
+"Lead
++60 11-6132 1531","","Jan 28 2026","Wants physical class","Prefers Physical","Not stated","N/S","'I am staying in Johor. And I prefer face to face therapy' (4 msgs)"
+"Lead
++60 11-6353 5088","","Apr 10 2026","Financial — can't afford","Financial Constraint","Not stated","N/S","'Leon.. shall i take those in July onward cos i need money for me official to Jakarta in June. Beside my daughter committ' (46 msgs)"
+"Lead
++60 12-2031 822","","Mar 23 2026","Not interested","Not Ready / Timing","Not stated","N/S","'can i know how's the installment plan for signing up the course ?' (12 msgs)"
+"Lead
++60 12-2105 237","","Mar 24 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(2 msgs)"
+"Lead
++60 12-2325 860","","Mar 16 2026","Referring a friend, not a buyer themselves","Other","Not stated","N/S","'Plse add my friend Nurul 0137543715' — lead is a referrer, not a buyer."
+"Lead
++60 12-2358 983","","Mar 24 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(2 msgs)"
+"Lead
++60 12-2551 526","","Feb 25 2026","Wants physical class","Prefers Physical","autism/ASD","N/S","'Hi do your centre do aceesment for autism?' (6 msgs)"
+"Lead
++60 12-2723 127","","Mar 10 2026","No substantive content — 10 msgs, no notes","Went Silent","Not stated","N/S","(10 msgs) No substantive exchange."
+"Lead
++60 12-2880 301","","Mar 09 2026","Only asked about webinar logistics, no purchase intent","Went Silent","Not stated","N/S","'Tomorrow session is similar or different focus?' (6 msgs)"
+"Lead
++60 12-2921 460","","Jan 21 2026","Not now — registered for AI courses, needs to focus","Not Ready / Timing","Focus issues","N/S","'Not now but probably in future. I have registered for several AI courses.' (14 msgs)"
+"Lead
++60 12-2939 510","","Jan 28 2026","Financial — adjusting spending as ECCE teacher trainer","Financial Constraint","Not stated","N/S","'Still adjust my spending money and yet have suitable time' (22 msgs)"
+"Lead
++60 12-3000 744","","Apr 02 2026","Actively going through online session — 20 msgs","Still Considering","Not stated","N/S","'Hi Leon its ok let me go thru the online session' (20 msgs). Ongoing."
+"Lead
++60 12-3151 346","","Apr 01 2026","Wants physical class","Prefers Physical","Not stated","N/S","'I’m looking for my daughter 13yr.' (16 msgs)"
+"Lead
++60 12-3174 956","","Feb 10 2026","Personal circumstances — attended funeral","Not Ready / Timing","Not stated","N/S","'Was attended my friend's bil funeral today' (10 msgs). Personal timing issue."
+"Lead
++60 12-3183 870","","Jan 24 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","'What about the book as promised?' (4 msgs)"
+"Lead
++60 12-3189 323","","Apr 13 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 12-3221 019","","Dec 04 2025","Financial — tight budget","Financial Constraint","Not stated","N/S","'hi I would like to know train the trainer program' (24 msgs)"
+"Lead
++60 12-3333 092","","Apr 10 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(2 msgs)"
+"Lead
++60 12-3408 455","","Apr 01 2026","Son very unwell — doctors can't find reason yet","Not Ready / Timing","Son frequently sick (reason unknown)","N/S","'My son is actually not very healthy.. doctors are still looking into it.' (18 msgs)"
+"Lead
++60 12-3442 362","","Jan 23 2026","No substantive content — 8 msgs, no notes","Went Silent","Not stated","N/S","(8 msgs) No substantive exchange."
+"Lead
++60 12-3451 890","","Apr 06 2026","First time encountering method — needs time to process","Skepticism","Not stated","N/S","'It's the 1st time i came across this method.' (22 msgs). Researching."
+"Lead
++60 12-3657 999","","Mar 25 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 12-3756 374","","Apr 13 2026","Said would ask questions tomorrow — never followed up","Went Silent","Not stated","N/S","'I have questions to ask but I keep it tomorrow ya.' (8 msgs). Didn't return."
+"Lead
++60 12-3772 166","","Feb 10 2026","Polite closing — thanked team, not buying","Not Ready / Timing","Not stated","N/S","'Thanks for organizing the amazing webinar and assistance throughout!' (17 msgs)"
+"Lead
++60 12-3871 682","","Apr 15 2026","Only reported ebook download error, no purchase intent","Went Silent","Not stated","N/S","'I've submitted the form to claim for the ebook but it failed to download' (6 msgs)"
+"Lead
++60 12-3932 663","","Apr 13 2026","Financial — can't afford","Financial Constraint","Not stated","N/S","'When will you have offline class?' (26 msgs)"
+"Lead
++60 12-4440 801","","Mar 10 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","'Self regulation, emotion outburst' (4 msgs)"
+"Lead
++60 12-4611 488","","Apr 01 2026","Only 2 msgs, no substantive content","Went Silent","Not stated","N/S","(2 msgs) No substantive exchange."
+"Lead
++60 12-4614 357","","Mar 18 2026","Institution wanting teacher training, not a parent buyer","Other","Not stated","N/A","'We're interested to do training for our teachers' (18 msgs). TTT inquiry."
+"Lead
++60 12-4675 481","","Mar 07 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 12-4748 825","","Jan 25 2026","Low urgency — 'don't have a high level of need'","Not Ready / Timing","Not stated","N/S","'I don't have a high level of need' (18 msgs). No compelling reason to join now."
+"Lead
++60 12-5080 501","","Apr 08 2026","Grandma watching out of curiosity — not target buyer","Other","Not stated","N/A","'I would not be joining as i am a grandmother. Followed out of curiosity.' (14 msgs)"
+"Lead
++60 12-5566 797","","Apr 06 2026","Busy / not ready / timing","Not Ready / Timing","Not stated","N/S","'Hi, day 1 is tomorrow or tonight?' (22 msgs)"
+"Lead
++60 12-5619 980","","Apr 01 2026","Appears to have already purchased VIP","Other","Not stated","N/S","'Hi dapnie. Ive purchase for the vip.my name is farah.' (26 msgs)."
+"Lead
++60 12-5655 621","","Mar 29 2026","Just asked what programs exist, 4 msgs, no follow-up","Went Silent","Focus (daughter)","N/S","'I'm looking for my daughter focus on study.. what are programs available?' (4 msgs)"
+"Lead
++60 12-5740 949","","Mar 18 2026","Financial — can't afford","Financial Constraint","Not stated","N/S","'I am but for now financially not equipped to enroll the course yet' (2 msgs)"
+"Lead
++60 12-5762 805","","Jan 21 2026","Financial — jobless/unemployed","Financial Constraint","autism/ASD","N/S","(4 msgs)"
+"Lead
++60 12-5956 613","","Jan 21 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 12-6096 202","","Dec 02 2025","Financial — can't afford","Financial Constraint","Not stated","N/S","'You will share the free ebook here is it?' (24 msgs)"
+"Lead
++60 12-6116 263","","Apr 07 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(2 msgs)"
+"Lead
++60 12-6122 133","","Apr 01 2026","No substantive content — 4 msgs, no notes","Went Silent","Not stated","N/S","(4 msgs) No substantive exchange."
+"Lead
++60 12-6282 297","","Apr 01 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 12-6331 423","","Jan 31 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 12-6532 607","","Mar 24 2026","Described problem only, 4 msgs, no purchase discussion","Went Silent","Focus (child at school)","N/S","'Not focusing in class. Short attention span easily distracted' (4 msgs)"
+"Lead
++60 12-6575 990","","Feb 25 2026","Left session early, asked for recording — timing issue","Not Ready / Timing","Not stated","N/S","'I have to go mid way of the live session, is it possible to share the recording?' (14 msgs)"
+"Lead
++60 12-6606 441","","Apr 10 2026","Instagram inquiry, 6 msgs, likely went silent after info","Went Silent","Not stated","N/S","'hi there i saw your add in instagram' (6 msgs)"
+"Lead
++60 12-6618 704","","Dec 04 2025","Busy / not ready / timing","Not Ready / Timing","learning difficulty, screen addiction","N/S","'Hi Morning Leon, yes what is it?' (94 msgs)"
+"Lead
++60 12-6765 867","","Mar 10 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(6 msgs)"
+"Lead
++60 12-7092 800","","Mar 23 2026","Questioning if program suits secondary school child","Skepticism","Child not progressing at secondary school","N/S","'I thought it's a mental development program, my child just not progressing in secondary.'"
+"Lead
++60 12-7099 228","","Feb 25 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","'I would like to know more for MOVEXERCISE8' (4 msgs)"
+"Lead
++60 12-7539 086","","Apr 14 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 12-8381 610","","Jan 31 2026","Only wanted ebook, 10 msgs, no purchase discussion","Went Silent","Not stated","N/S","'Hi Leon, can I get the ebook? Thank you' (10 msgs)"
+"Lead
++60 12-8851 896","","Apr 04 2026","Needs daughter-in-law's confirmation before paying","Spouse Buy-in","Not stated","N/S","'My daughter in law is away. Will transfer after I get her confirmation by Tue.' (2 msgs)"
+"Lead
++60 12-9071 988","","Feb 27 2026","Only confirmed ebook delivery, 4 msgs","Went Silent","Not stated","N/S","'Just wanted to confirm, we will receive the ebook via email?' (4 msgs)"
+"Lead
++60 12-9093 073","","Apr 02 2026","Deferring — 'will take a rain check for now'","Not Ready / Timing","Not stated","N/S","'We will take a rain check for now.' (10 msgs)"
+"Lead
++60 12-9161 364","","Mar 16 2026","Questioning what they get from the 1-year course","Skepticism","Not stated","N/S","'what we will get from the one year course?' Needs convincing before deciding."
+"Lead
++60 12-9342 512","","Jan 23 2026","Needs to discuss with spouse","Spouse Buy-in","Not stated","N/S","'Which mean after a year, no longer can access to the community right' (18 msgs)"
+"Lead
++60 12-9557 093","","Jan 15 2026","Busy / not ready / timing","Not Ready / Timing","Not stated","N/S","'Hello Leon. Will be decided later after reviewing other options. Thank you for sharing for the past 2 days.' (8 msgs)"
+"Lead
++60 12-9672 525","","Mar 09 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 12-9757 800","","Jan 28 2026","Busy / not ready / timing","Not Ready / Timing","Not stated","N/S","'Yeah i know. Maybe next time coz i already spend almost 10k this month for registration for my sons therapies and EIP.' (14 msgs)"
+"Lead
++60 12-9780 929","","Apr 14 2026","Complained ebook not received weeks later, 10 msgs","Went Silent","Not stated","N/S","'hi i attended the event weeks ago, til today i did not receive my ebook' (10 msgs)"
+"Lead
++60 12-9835 211","","Mar 09 2026","Wants physical class","Prefers Physical","homework struggle","N/S","'Hi…i couldnt join until the last session' (10 msgs)"
+"Lead
++60 13-3895 048","","Mar 25 2026","Only asked for session notes via email, 22 msgs","Went Silent","Not stated","N/S","'Can I get your notes in my email address please.Tq' (22 msgs)"
+"Lead
++60 13-3904 655","","Mar 16 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 13-3938 730","","Apr 02 2026","Auto-reply ('Thank you for contacting Lily'), not a real lead","Went Silent","Not stated","N/S","Auto-reply: 'Thank you for contacting Lily. Please let me know how I can help you.'"
+"Lead
++60 13-5873 536","","Feb 10 2026","No substantive content — 6 msgs, no notes","Went Silent","Not stated","N/S","(6 msgs) No substantive exchange."
+"Lead
++60 11-6569 2710","","Mar 24 2026","High engagement (40 msgs) — ongoing Q&A, no clear objection","Still Considering","Not stated","N/S","'Upcoming Q&A: Submit Your Questions' (40 msgs). Active, no objection surfaced."
+"Lead
++60 13-7543 715","","Mar 16 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(2 msgs)"
+"Lead
++60 13-8158 228","","Mar 24 2026","Needs more time to think about it","Not Ready / Timing","Not stated","N/S","'Thanks for the reply. But I need some times to think about it.' (6 msgs)"
+"Lead
++60 13-8987 187","","Jan 29 2026","Financial — can't afford","Financial Constraint","Not stated","N/S","'Hai i didn't proceed with register as I cannot afford the program fees..' (10 msgs)"
+"Lead
++60 13-9277 088","","Mar 24 2026","No substantive content — 8 msgs, no notes","Went Silent","Not stated","N/S","(8 msgs) No substantive exchange."
+"Lead
++60 14-3144 239","","Feb 09 2026","Financial — tight budget","Financial Constraint","tantrums","N/S","'Hi thank you so much but I will attend the tomorrow session too first.' (14 msgs)"
+"Lead
++60 14-3300 962","","Mar 31 2026","Only asked about ebook, 8 msgs","Went Silent","Not stated","N/S","'Is this the free e book for attending the both 2 days course?' (8 msgs)"
+"Lead
++60 14-3591 343","","Jan 30 2026","Only 2 msgs — described granddaughter issue, no purchase discussion","Went Silent","Granddaughter: fiery temper, rebellious","N/S","'I'm having problem with my granddaughter. She has a fiery temper, is rebellious.' (2 msgs)"
+"Lead
++60 14-3682 894","","Apr 12 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(8 msgs)"
+"Lead
++60 14-5076 803","","Jan 23 2026","Financial — can't afford","Financial Constraint","speech delay","N/S","'At the moment cannot yet. Because I resign working since oct. Not financially stable. Perhaps next time will sign up. It' (22 msgs)"
+"Lead
++60 14-6001 925","","Apr 14 2026","Sick, missed Day 2 — asked for recording","Not Ready / Timing","Not stated","N/S","'Today day 2 im not able to join.. im not feeling well.. when can i get the recording?' (4 msgs)"
+"Lead
++60 14-6691 826","","Apr 15 2026","Only asked about free course, 4 msgs","Went Silent","Not stated","N/S","'Hi I would like to join the free course.' (4 msgs)"
+"Lead
++60 14-9312 007","","Mar 24 2026","Only asked what time the webinar is, 10 msgs","Went Silent","Not stated","N/S","'Hi. May i know what time is the webinar. I have registered' (10 msgs)"
+"Lead
++60 16-2126 114","","Mar 23 2026","Questioning what program is — asked if it includes yoga","Skepticism","Not stated","N/S","'Hi Leon, is movexercise part of yoga exercises too?' (6 msgs). Unclear on method."
+"Lead
++60 16-2129 567","","Jan 29 2026","Needs to discuss with spouse","Spouse Buy-in","focus issues, anger/aggression, homework struggle","N/S","'Hi my concern is money… i would like to join' (28 msgs)"
+"Lead
++60 16-2136 307","","Feb 10 2026","Busy / not ready / timing","Not Ready / Timing","Not stated","N/S","'Sorry .. family urgent matter that I need to ATTEND TO' (16 msgs)"
+"Lead
++60 16-2265 020","","Mar 29 2026","File error technical issue, 14 msgs — admin only","Went Silent","Not stated","N/S","'It seems the files have error, unable to load' (14 msgs)"
+"Lead
++60 16-2471 604","","Nov 12 2025","Wants physical class","Prefers Physical","Not stated","N/S","'Is the RM 2688 meant for attend 2 days course only?' (26 msgs)"
+"Lead
++60 16-2587 023","","Mar 09 2026","Financial — can't afford","Financial Constraint","tantrums","N/S","'Is the payment must be one time off?' (20 msgs)"
+"Lead
++60 16-2666 614","","Mar 23 2026","Only reported missing Zoom invite, 2 msgs","Went Silent","Not stated","N/S","'Hi I've not received the zoom invite via email yet' (2 msgs)"
+"Lead
++60 16-2706 610","","Mar 24 2026","Described need only, 4 msgs, no purchase discussion","Went Silent","Focus/attention (child)","N/S","'Improve his focus and attention..' (4 msgs). No follow-up."
+"Lead
++60 16-2734 712","","Jan 20 2026","Needs to discuss with spouse","Spouse Buy-in","Not stated","N/S","'Does this class will be beneficial for autistic children' (18 msgs)"
+"Lead
++60 16-2882 988","","Mar 23 2026","Not sure / wants to research","Skepticism","Not stated","N/S","'Hi, I’d appreciate a little more time to consider. Thank you for the follow-up.' (4 msgs)"
+"Lead
++60 16-2885 408","","Mar 31 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 16-3036 379","","Apr 15 2026","Not at the moment","Not Ready / Timing","Focus (child)","N/S","'Yes im aware but maybe not at the moment but thank you' (6 msgs)"
+"Lead
++60 16-3037 371","","Apr 01 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","'Hi, i would like claim the ebook' (2 msgs)"
+"Lead
++60 16-3212 438","","Mar 31 2026","Wants physical class","Prefers Physical","Not stated","N/S","'Hi Admin. If tonight class I am slightly late I can? As I got another physical class till 820pm' (6 msgs)"
+"Lead
++60 16-3224 993","","Apr 07 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 16-3691 282","","Apr 14 2026","Explicitly declined — 'No. Not now.'","Not Ready / Timing","Not stated","N/S","'No. Not now. Thank you for your 2 days talk/course.' (4 msgs)"
+"Lead
++60 16-3801 871","","Dec 03 2025","Financial — can't afford","Financial Constraint","Not stated","N/S","'Hi dear 🌿 Just wanted to update you with some good news, we’ve managed to arrange an installment option specially for si' (20 msgs)"
+"Lead
++60 16-3831 334","","Mar 29 2026","Asked about cost — went silent after pricing","Financial Constraint","Not stated","N/S","'May i know The cost / fees for The classes' (10 msgs). Went silent after pricing."
+"Lead
++60 16-3832 363","","Mar 31 2026","Wants physical class","Prefers Physical","Not stated","N/S","'If too far far,,, I'm thinking how to go over to center!' (10 msgs)"
+"Lead
++60 16-3902 196","","Mar 24 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","'Hi...may know more on the course' (2 msgs)"
+"Lead
++60 16-4217 669","","Feb 10 2026","Polite closing — inspired but not buying","Not Ready / Timing","Not stated","N/S","'Thank you Leon and Daphne also. It was inspiring stories' (12 msgs)"
+"Lead
++60 16-4526 291","","Mar 09 2026","Not interested","Not Ready / Timing","Not stated","N/S","(2 msgs)"
+"Lead
++60 16-4626 003","","Feb 11 2026","Needs to discuss with spouse","Spouse Buy-in","homework struggle","N/S","'Hi teacher my husband info  no need first anything will update u' (20 msgs)"
+"Lead
++60 16-5555 716","","Mar 31 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(6 msgs)"
+"Lead
++60 16-6140 031","","Mar 29 2026","Only registered for free trial, 2 msgs","Went Silent","Not stated","N/S","'Hi, I have registered for the free trial class for my daughter.' (2 msgs)"
+"Lead
++60 16-6239 656","","Mar 18 2026","No substantive content — 6 msgs, no notes","Went Silent","Not stated","N/S","(6 msgs) No substantive exchange."
+"Lead
++60 16-6872 402","","Apr 13 2026","Polite closing — 'thank you very much'","Not Ready / Timing","Not stated","N/S","'Alright ..thank you very much' (10 msgs). Polite close."
+"Lead
++60 16-6876 064","","Mar 10 2026","Confused about event dates — 16 msgs admin logistics","Went Silent","Not stated","N/S","'Hi.. I am confuse.. in the email it mentioned that the event is on 16-17..' (16 msgs)"
+"Lead
++60 16-7253 909","","Mar 31 2026","Wants local option — schools in Johor/Melaka area","Prefers Physical","Not stated","N/S","'Most of the school at Johor Melaka' — wants physical/local option near them."
+"Lead
++60 16-7288 803","","Apr 14 2026","Already enrolled in another program (Brain Rewiring System)","Other","Not stated","N/S","'I already submitted for Brain rewiring system..' (8 msgs). Not a new buyer."
+"Lead
++60 16-8188 899","","Feb 10 2026","Wants physical class","Prefers Physical","Not stated","N/S","'am staying in Kota Kinabalu city btw. gud9.' (12 msgs)"
+"Lead
++60 16-8827 913","","Apr 02 2026","Only asked about participation certificate, 10 msgs","Went Silent","Not stated","N/S","'ok..is there any certificate of participation?' (10 msgs)"
+"Lead
++60 16-9191 509","","Apr 01 2026","No substantive content — 12 msgs, no notes","Went Silent","Not stated","N/S","(12 msgs) No substantive exchange."
+"Lead
++60 16-9800 106","","Jan 28 2026","Needs to discuss with spouse","Spouse Buy-in","Not stated","N/S","'Not sure she is interested, but let me ask her 1st' (18 msgs)"
+"Lead
++60 16-9828 205","","Mar 23 2026","Financial — can't afford","Financial Constraint","Not stated","N/S","'Hi Leon,the movexercise 8 programme is very good,im still consider on it as the price i can't afford now😬' (6 msgs)"
+"Lead
++60 17-2579 693","","Mar 24 2026","Busy — had to go out that night","Not Ready / Timing","Not stated","N/S","'Yes I need to go out that night' (8 msgs). Could not commit that evening."
+"Lead
++60 17-2873 216","","Mar 23 2026","Only wanted to redeem ebook, 8 msgs","Went Silent","Not stated","N/S","'Morning Leon. Can I redeem the ebook? Thanks' (8 msgs)"
+"Lead
++60 17-5571 283","","Apr 03 2026","Asked about price — financial concern","Financial Constraint","Not stated","N/S","'But I want to know if the course is how much' (4 msgs). Price sensitivity."
+"Lead
++60 17-5671 933","","Apr 06 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 17-6541 766","","Mar 17 2026","Only asked to be added to group, 8 msgs","Went Silent","Not stated","N/S","'Yes please address me into the group' (8 msgs). No purchase discussion."
+"Lead
++60 17-6886 433","","Mar 23 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(6 msgs)"
+"Lead
++60 17-7772 829","","Apr 08 2026","Instagram inquiry — wanted to know more, 8 msgs","Went Silent","Not stated","N/S","'I saw the video in insta about children what is this about want to know more' (8 msgs)"
+"Lead
++60 17-8707 585","","Mar 24 2026","Financial — can't afford","Financial Constraint","ADHD, anger/aggression","N/S","'I’m interested with the program but currently I’m struggling with financial issues.' (6 msgs)"
+"Lead
++60 17-9087 695","","Mar 10 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(6 msgs)"
+"Lead
++60 17-9832 773","","Mar 31 2026","Self-identified as retiree — not urgently committed","Not Ready / Timing","Not stated","N/S","'Still considering. Am a retiree' (6 msgs). Low urgency."
+"Lead
++60 18-2603 526","","Apr 06 2026","No substantive content — 8 msgs, no notes","Went Silent","Not stated","N/S","(8 msgs) No substantive exchange."
+"Lead
++60 18-2711 111","","Apr 06 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(4 msgs)"
+"Lead
++60 18-3562 628","","Apr 01 2026","Had urgent school matter, had to leave the talk","Not Ready / Timing","Not stated","N/S","'I have to leave the Talk. I need to do something for school, urgent.' (20 msgs)"
+"Lead
++60 18-3882 898","","Feb 10 2026","Only asked about class timing, 6 msgs","Went Silent","Not stated","N/S","'When is the online class and timing ya?' (6 msgs)"
+"Lead
++60 18-3927 077","","Apr 07 2026","Only 2 msgs — asked one question about program format","Went Silent","Not stated","N/S","'Can I knw more about the programme? I have to perform at home myself?' (2 msgs)"
+"Lead
++60 18-5701 443","","Feb 10 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(6 msgs)"
+"Lead
++60 18-9468 641","","Apr 15 2026","Only asked about ebook registration repeatedly, 16 msgs","Went Silent","Focus (child)","N/S","'Free e-book must always register again?' (16 msgs). Admin only."
+"Lead
++60 19-2084 155","","Jan 28 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(2 msgs)"
+"Lead
++60 19-2396 889","","Jan 21 2026","Only asked how to get ebook, 4 msgs","Went Silent","Not stated","N/S","'Hi, may I know how do we get the free e-book?' (4 msgs)"
+"Lead
++60 19-2433 783","","Feb 09 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(2 msgs)"
+"Lead
++60 19-2469 652","","Feb 09 2026","Wants physical class","Prefers Physical","Not stated","N/S","'The price is steep. I'll join the session tmrw.' (10 msgs)"
+"Lead
++60 19-2643 421","","Mar 16 2026","Asked about tax deductibility — financially motivated","Financial Constraint","Not stated","N/S","'May i know this program will fall under which item of tax deductible?' (10 msgs)"
+"Lead
++60 19-2776 639","","Feb 10 2026","Busy at work, couldn't join the session","Not Ready / Timing","Not stated","N/S","'i am working now, cannot join wor' (16 msgs). Timing/work conflict."
+"Lead
++60 19-3022 812","","Apr 14 2026","Missed session, 4 msgs, no purchase follow-up","Went Silent","Not stated","N/S","'Hi I missed yesterday's session' (4 msgs)"
+"Lead
++60 19-3249 511","","Mar 30 2026","Engaged with webinar VIP but didn't commit to main program","Not Ready / Timing","Not stated","N/S","'Hi how do i upgrade to vip the rm68?' (14 msgs). Active but didn't convert."
+"Lead
++60 19-3936 070","","Apr 07 2026","Needs to discuss with spouse","Spouse Buy-in","anger/aggression","N/S","'May I know how the schedule? Usually will make on the weekend? Do I need to attend physically?' (16 msgs)"
+"Lead
++60 19-4743 743","","Mar 31 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","'Yes sure , thank you for your response.' (4 msgs)"
+"Lead
++60 19-5098 819","","Jan 21 2026","Needs to discuss with spouse","Spouse Buy-in","Not stated","N/S","'Sorry I think Daphie miss out my question' (24 msgs)"
+"Lead
++60 19-5287 660","","Feb 25 2026","Sunday scheduling conflict — Sunday is school day in the north","Not Ready / Timing","Not stated","N/S","'We are from north Sunday is school' (10 msgs). Can't attend on Sundays."
+"Lead
++60 19-5512 852","","Apr 13 2026","Can't commit to 1-year program","Not Ready / Timing","Not stated","N/S","'This is regarding 1yr program right? If yes, im sorry, im not able to commit' (4 msgs)"
+"Lead
++60 19-5667 392","","Apr 10 2026","Already purchased a recording package — existing customer","Other","Not stated","N/S","'i bought package that comes together with recording' (14 msgs). Existing buyer."
+"Lead
++60 19-5787 293","","Jan 21 2026","Afraid can't commit every weekend 10am-5pm","Not Ready / Timing","Screen addiction","N/S","'Afraid I can't commit every weekend 10am-5pm' (24 msgs). Time commitment concern."
+"Lead
++60 19-5906 238","","Mar 24 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","'Hi, can I please get the free e-book?' (4 msgs)"
+"Lead
++60 19-6699 544","","Mar 28 2026","Described daughter's focus issue, 8 msgs, no purchase","Went Silent","Focus (daughter, studies)","N/S","'I need help with my daughter to concentrate in her studies' (8 msgs)"
+"Lead
++60 19-6888 664","","Mar 17 2026","No substantive content — 14 msgs, no notes","Went Silent","Not stated","N/S","(14 msgs) No substantive exchange."
+"Lead
++60 19-7353 337","","Mar 30 2026","Wants 1-on-1 online session — group format doesn't suit","Skepticism","Not stated","N/S","'Hi! I would like to find out, do you have an online personal session?' (4 msgs)"
+"Lead
++60 19-7732 119","","Mar 16 2026","Educator joining for students, not own child — not target buyer","Other","Not stated","N/A","'Nope. I'm joining for my students not my own child.' (4 msgs)"
+"Lead
++60 19-8555 895","","Feb 09 2026","Minimal engagement / went silent","Went Silent","Not stated","N/S","(2 msgs)"
+"Lead
++60 19-8580 288","","Apr 13 2026","Not yet decided — politely declining for now","Not Ready / Timing","Not stated","N/S","'For now i not yet decide to join. Thanks Daphanie's sharing. Great' (2 msgs)"
