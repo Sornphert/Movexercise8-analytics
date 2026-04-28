@@ -290,7 +290,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    load_dotenv()
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
     # Load credentials
     account_id = os.getenv("ZOOM_ACCOUNT_ID")
