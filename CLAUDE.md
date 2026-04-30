@@ -18,7 +18,7 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 ## Architecture
 - `app.py` is the only entry point. It calls `load_all()` once, then **mutates `data` in place** based on the sidebar date filter ([app.py:69-80](app.py#L69-L80)) before dispatching to each section's `render(data)`. Section files must NOT re-apply date filters — the data they receive is already scoped.
 - `load_all()` returns a dict with these keys (this shape is the contract between the loader and every section):
-  - `leads` — DataFrame
+  - `leads` — DataFrame, enriched with a `registered_for_webinar` column (next webinar within 9 days of registration, or 'Unknown')
   - `purchases` — DataFrame, enriched with an `inferred_webinar` column (nearest webinar on/before the purchase date, within 14 days)
   - `webinars` — **dict** keyed by session id, not a DataFrame. Each value has `date`, attendee lists, etc.
   - `meta` — DataFrame of Meta Ads rows
@@ -66,6 +66,7 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - `purchases.csv` is now a **fallback cache only**. The dashboard pulls live from Google Sheets via `gspread` inside `load_purchases()` (5-min TTL, same pattern as `load_leads()`). Sheet ID and gid are in `.streamlit/secrets.toml` under `[sheets]`. The service account `sheets-reader@movexercise8.iam.gserviceaccount.com` must have view access to the sheet. `scripts/fetch_purchases_data.py` still works for manual refreshes of the local CSV but is no longer required for the dashboard to be fresh.
 - `meta_ads.csv` is auto-pulled from the Meta Marketing API — do not hand-edit. Run `python scripts/fetch_meta_ads.py` to refresh. Ranking columns use literal `"-"` for missing data (the dashboard filters on this exact string).
 - `load_all()` enriches purchases with an `inferred_webinar` column (nearest webinar on/before the purchase date, within 14 days). Use `get_webinar_sales_summary()` from `utils/data_loader.py` for per-webinar sales breakdowns.
+- `load_all()` enriches leads with a `registered_for_webinar` column (next webinar within 9 days). Use `get_webinar_registration_summary()` from `utils/data_loader.py` for per-webinar registration breakdowns. The 9-day window covers ad campaigns that run between Mon-Thu webinar dates.
 
 ## Testing
 - Run locally with `streamlit run app.py`
@@ -73,7 +74,7 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - Always verify numbers against the source CSVs when adding new metrics.
 
 ## What's built
-- [done] Phase 1: Overview, Sales & Revenue, Lead Pipeline, Webinar Performance
+- [done] Phase 1: Overview, Sales & Revenue, Lead Pipeline (rebuilt with funnel-health, show-up diagnosis, lead-source quality, time-to-convert), Webinar Performance
 - [done] Phase 2a: Failed Leads (objection breakdown, recoverability, audience profile)
 - [removed] Phase 2b: Cohort Analysis tab. The monthly cohort table + conversion-rate-by-month chart now live in the Overview tab as "Monthly Performance" (with a month-over-month delta panel). The engagement trend line moved to the Webinar Performance tab as "Engagement Over Time" with a 3-webinar rolling average. The funnel heatmap and webinar-cohort comparison were dropped (duplicated existing views). `build_monthly_cohorts`, `build_webinar_cohorts`, `build_cohort_heatmap`, `calculate_cohort_summary`, and `calculate_engagement_trend` are kept in `utils/metrics.py` for potential reuse but are currently unreferenced.
 - [done] Phase 3: Ad Spend & ROI (spend overview, creative comparison, top ads, quality rankings, ROI analysis)

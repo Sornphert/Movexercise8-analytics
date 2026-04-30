@@ -612,7 +612,8 @@ def get_webinar_registration_summary(
 
         avg_days_before = 0.0
         if registered_count > 0:
-            diffs = (day1_date - registered_leads["date"]).dt.days.dropna()
+            lead_days = pd.to_datetime(registered_leads["date"]).dt.normalize()
+            diffs = (day1_date - lead_days).dt.days.dropna()
             if not diffs.empty:
                 avg_days_before = round(float(diffs.mean()), 1)
 
