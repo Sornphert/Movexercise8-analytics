@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-from sections import ad_spend, ai_chat, cohort_analysis, failed_leads, lead_pipeline, overview, sales_revenue, webinar_performance
+from sections import ad_spend, ai_chat, ebook_survey, failed_leads, lead_pipeline, overview, sales_revenue, webinar_performance
 from utils.data_loader import load_all
 from utils.styles import inject_css
 
@@ -78,6 +78,10 @@ with st.sidebar:
             k: v for k, v in data["webinars"].items()
             if start <= pd.Timestamp(v["date"]) < end
         }
+        ebook = data.get("ebook")
+        if ebook is not None and not ebook.empty and "date" in ebook.columns:
+            ebook_dates = ebook["date"]
+            data["ebook"] = ebook[ebook_dates.isna() | ((ebook_dates >= start) & (ebook_dates < end))]
 
     st.divider()
     st.header("Data loaded")
@@ -86,6 +90,8 @@ with st.sidebar:
     st.caption(f"**{len(data['webinars'])}** webinar sessions")
     st.caption(f"**{len(data['meta'])}** ad rows")
     st.caption(f"**{len(data['objections'])}** objections")
+    if "ebook" in data:
+        st.caption(f"**{len(data['ebook'])}** e-book responses")
 
     # Auto-load API key from secrets, allow sidebar override
     if "gemini_api_key" not in st.session_state:
@@ -94,7 +100,7 @@ with st.sidebar:
 # ── Tabs ──────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
     ["Overview", "Sales & Revenue", "Lead Pipeline", "Webinar Performance",
-     "Failed Leads", "Cohort Analysis", "Ad Spend & ROI", "AI Assistant"]
+     "Failed Leads", "E-book Survey", "Ad Spend & ROI", "AI Assistant"]
 )
 
 with tab1:
@@ -108,7 +114,7 @@ with tab4:
 with tab5:
     failed_leads.render(data)
 with tab6:
-    cohort_analysis.render(data)
+    ebook_survey.render(data)
 with tab7:
     ad_spend.render(data)
 with tab8:

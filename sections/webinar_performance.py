@@ -5,10 +5,11 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from utils.ai import render_ai_insights
-from utils.charts import apply_standard_layout
+from utils.charts import apply_standard_layout, line_chart
 from utils.data_loader import load_participant_detail
 from utils.metrics import (
     calculate_dropoff_curve,
+    calculate_engagement_over_time,
     calculate_engagement_windows,
     calculate_exit_histogram,
     calculate_webinar_health,
@@ -65,6 +66,8 @@ def render(data: dict):
     _render_dropoff(selected_event, d1_df, d2_df, day1_date, day2_date, webinars)
     _render_exit_histogram(selected_event, d1_df, webinars, day1_date)
     _render_engagement_windows(selected_event, webinars, d1_df, d2_df)
+
+    _render_engagement_over_time(webinars)
 
     _render_ai(events, latest_event, purchases, webinars)
 
@@ -518,6 +521,39 @@ def _render_engagement_windows(event: dict, webinars: dict,
             st.markdown(alert(msg, variant=variant), unsafe_allow_html=True)
 
 
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Engagement Over Time
+# ─────────────────────────────────────────────────────────────────────
+
+def _render_engagement_over_time(webinars: dict):
+    st.markdown(section_header("Engagement Over Time"), unsafe_allow_html=True)
+
+    eng_df = calculate_engagement_over_time(webinars, rolling_window=3)
+    if len(eng_df) < 2:
+        st.info("Need at least 2 webinars to show trend.")
+        return
+
+    melted = pd.melt(
+        eng_df,
+        id_vars=["date"],
+        value_vars=["avg_duration", "rolling_avg"],
+        var_name="series",
+        value_name="minutes",
+    )
+    melted["series"] = melted["series"].map({
+        "avg_duration": "Avg Duration",
+        "rolling_avg": "3-webinar avg",
+    })
+    st.plotly_chart(
+        line_chart(
+            melted, x="date", y="minutes",
+            color_col="series",
+            title="Avg Watch Duration Across Webinars",
+        ),
+        use_container_width=True,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────

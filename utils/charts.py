@@ -41,6 +41,7 @@ def bar_chart(
     orientation: str = "v",
     barmode: str = "group",
     color_map: dict | None = None,
+    category_x: bool = False,
 ) -> go.Figure:
     kwargs = dict(x=x, y=y, title=title, orientation=orientation, barmode=barmode)
     if color_col:
@@ -56,6 +57,9 @@ def bar_chart(
     fig = px.bar(df, **kwargs)
     if text_col:
         fig.update_traces(textposition="outside")
+    if category_x:
+        # Prevents plotly from auto-parsing labels like "4-6" or "7-9" as dates.
+        fig.update_xaxes(type="category")
     return apply_standard_layout(fig)
 
 
@@ -65,8 +69,16 @@ def line_chart(
     y: str,
     title: str = "",
     color: str = "#2D6A4F",
+    color_col: str | None = None,
 ) -> go.Figure:
-    fig = px.line(df, x=x, y=y, title=title, color_discrete_sequence=[color])
+    if color_col:
+        fig = px.line(
+            df, x=x, y=y, title=title,
+            color=color_col,
+            color_discrete_sequence=COLORS["chart_palette"],
+        )
+    else:
+        fig = px.line(df, x=x, y=y, title=title, color_discrete_sequence=[color])
     fig.update_traces(line_width=2.5)
     return apply_standard_layout(fig)
 

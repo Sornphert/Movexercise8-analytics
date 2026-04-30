@@ -4,6 +4,8 @@ import streamlit as st
 from utils.charts import bar_chart
 from utils.metrics import (
     calculate_funnel_metrics,
+    calculate_month_over_month,
+    calculate_monthly_summary,
     calculate_period_comparison,
     calculate_revenue_metrics,
     calculate_webinar_summary,
@@ -12,6 +14,14 @@ from utils.metrics import (
 from utils.ai import render_ai_insights
 from utils.data_loader import get_webinar_sales_summary
 from utils.styles import alert, metric_card, section_header
+
+
+def _arrow(direction: str) -> str:
+    if direction == "up":
+        return '<span style="color:#40916C">&#9650;</span>'
+    if direction == "down":
+        return '<span style="color:#E76F51">&#9660;</span>'
+    return '<span style="color:#6C757D">&#9644;</span>'
 
 
 def render(data: dict):
@@ -104,13 +114,6 @@ def render(data: dict):
     rev_change = round((rev_current - rev_previous) / rev_previous * 100, 1) if rev_previous else 0.0
     rev_dir = "up" if rev_change > 0 else ("down" if rev_change < 0 else "flat")
 
-    def _arrow(direction: str) -> str:
-        if direction == "up":
-            return '<span style="color:#40916C">&#9650;</span>'
-        if direction == "down":
-            return '<span style="color:#E76F51">&#9660;</span>'
-        return '<span style="color:#6C757D">&#9644;</span>'
-
     d1, d2, d3 = st.columns(3)
     with d1:
         st.markdown(
@@ -163,6 +166,70 @@ def render(data: dict):
 
     if alerts_html:
         st.markdown(alerts_html, unsafe_allow_html=True)
+
+    # ── Monthly Performance ───────────────────────────────────────
+    st.markdown(section_header("Monthly Performance"), unsafe_allow_html=True)
+
+    monthly = calculate_monthly_summary(leads, purchases)
+
+    if monthly.empty:
+        st.info("No monthly data available yet.")
+    else:
+        m_left, m_right = st.columns(2)
+        with m_left:
+            st.plotly_chart(
+                bar_chart(
+                    monthly, x="month", y="conversion_rate",
+                    title="Conversion Rate by Month (%)",
+                    text_col="conversion_rate", color="#D4A843",
+                ),
+                use_container_width=True,
+            )
+        with m_right:
+            st.dataframe(
+                monthly.rename(columns={
+                    "month": "Month",
+                    "leads": "Leads",
+                    "buyers": "Buyers",
+                    "conversion_rate": "Conv %",
+                    "revenue": "Revenue (RM)",
+                }),
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Revenue (RM)": st.column_config.NumberColumn(format="%.0f"),
+                },
+            )
+
+        mom = calculate_month_over_month(leads, purchases)
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            st.markdown(
+                metric_card(
+                    "Leads This Month",
+                    f"{int(mom['leads']['current']):,}",
+                    f"{_arrow(mom['leads']['direction'])} {mom['leads']['change_pct']:+.1f}% vs prior month ({int(mom['leads']['previous']):,})",
+                ),
+                unsafe_allow_html=True,
+            )
+        with m2:
+            st.markdown(
+                metric_card(
+                    "Buyers This Month",
+                    str(int(mom["buyers"]["current"])),
+                    f"{_arrow(mom['buyers']['direction'])} {mom['buyers']['change_pct']:+.1f}% vs prior month ({int(mom['buyers']['previous'])})",
+                ),
+                unsafe_allow_html=True,
+            )
+        with m3:
+            st.markdown(
+                metric_card(
+                    "Revenue This Month",
+                    f"RM {mom['revenue']['current']:,.0f}",
+                    f"{_arrow(mom['revenue']['direction'])} {mom['revenue']['change_pct']:+.1f}% vs prior month (RM {mom['revenue']['previous']:,.0f})",
+                ),
+                unsafe_allow_html=True,
+            )
 
     # ── Lead trend chart ──────────────────────────────────────────
     st.markdown(section_header("Daily Lead Registrations"), unsafe_allow_html=True)

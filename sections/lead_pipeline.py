@@ -1,19 +1,19 @@
+import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
-from utils.charts import bar_chart, funnel_chart, pie_chart
-from utils.metrics import (
-    calculate_funnel_stages,
-    calculate_lead_to_sale_times,
-)
 from utils.ai import render_ai_insights
-from utils.styles import metric_card, section_header
+from utils.charts import apply_standard_layout, bar_chart, funnel_chart
+from utils.metrics import (
+    calculate_funnel_health,
+    calculate_lead_source_quality,
+    calculate_show_up_diagnostics,
+    calculate_time_to_convert_buckets,
+)
+from utils.styles import COLORS, alert, metric_card, section_header
 
-
-def _health_variant(pct: float) -> str:
-    if pct >= 50:
-        return ""
-    return "warning" if pct >= 20 else "danger"
+_HEALTH_VARIANT = {"green": "", "yellow": "warning", "red": "danger"}
 
 
 def render(data: dict):
@@ -22,141 +22,251 @@ def render(data: dict):
     webinars = data["webinars"]
     objections = data["objections"]
 
-    stages = calculate_funnel_stages(leads, purchases, webinars, objections)
+    if leads.empty:
+        st.warning("No lead data in the selected date range.")
+        return
 
-    # ── Funnel chart ──────────────────────────────────────────────
-    st.markdown(section_header("Lead Pipeline"), unsafe_allow_html=True)
+    health = _render_funnel_health(leads, purchases, webinars, objections)
+    show_up = _render_show_up_diagnosis(leads, webinars)
+    source_table = _render_lead_source_quality(leads, purchases)
+    convert = _render_time_to_convert(leads, purchases)
+    _render_ai(health, show_up, source_table, convert)
 
-    stage_names = [s[0] for s in stages]
-    stage_values = [s[1] for s in stages]
+
+def _render_funnel_health(leads, purchases, webinars, objections):
+    health = calculate_funnel_health(leads, purchases, webinars, objections)
+
+    st.markdown(section_header("Funnel"), unsafe_allow_html=True)
+    stage_names = [s["name"] for s in health["stages"]]
+    stage_values = [s["count"] for s in health["stages"]]
     st.plotly_chart(
         funnel_chart(stage_names, stage_values, title="Full Funnel"),
         use_container_width=True,
     )
 
-    # ── Stage-by-stage conversion rates ───────────────────────────
-    st.markdown(section_header("Stage Conversion Rates"), unsafe_allow_html=True)
-
-    cols = st.columns(len(stages) - 1)
-    for i, col in enumerate(cols):
-        prev_val = stages[i][1]
-        curr_val = stages[i + 1][1]
-        rate = round(curr_val / prev_val * 100, 1) if prev_val else 0.0
-        label = f"{stages[i][0]} → {stages[i + 1][0]}"
+    cols = st.columns(len(health["transitions"]))
+    for col, t in zip(cols, health["transitions"]):
         with col:
             st.markdown(
-                metric_card(label, f"{rate}%", f"{curr_val:,} / {prev_val:,}",
-                            variant=_health_variant(rate)),
+                metric_card(
+                    t["label"],
+                    f"{t['rate']}%",
+                    f"{t['numer']:,} / {t['denom']:,}",
+                    variant=_HEALTH_VARIANT[t["health"]],
+                ),
                 unsafe_allow_html=True,
             )
 
-    # ── Period comparison ─────────────────────────────────────────
-    st.markdown(section_header("This Month vs Last Month vs All-Time"), unsafe_allow_html=True)
-
-    today = pd.Timestamp.today().normalize()
-    month_start = today.replace(day=1)
-    last_month_start = (month_start - pd.Timedelta(days=1)).replace(day=1)
-
-    def _period_stages(ld, pu):
-        total = len(ld)
-        buyers = len(pu)
-        paid = int(pu["payment_complete"].sum()) if len(pu) else 0
-        conv = round(buyers / total * 100, 1) if total else 0.0
-        pay_rate = round(paid / buyers * 100, 1) if buyers else 0.0
-        return total, buyers, paid, conv, pay_rate
-
-    leads_this = leads[leads["date"] >= month_start]
-    purch_this = purchases[purchases["date"] >= month_start]
-    leads_last = leads[(leads["date"] >= last_month_start) & (leads["date"] < month_start)]
-    purch_last = purchases[(purchases["date"] >= last_month_start) & (purchases["date"] < month_start)]
-
-    this_m = _period_stages(leads_this, purch_this)
-    last_m = _period_stages(leads_last, purch_last)
-    all_t = _period_stages(leads, purchases)
-
-    p1, p2, p3 = st.columns(3)
-    for col, label, vals in [(p1, "This Month", this_m), (p2, "Last Month", last_m), (p3, "All-Time", all_t)]:
-        with col:
-            st.markdown(f"**{label}**")
-            st.markdown(
-                metric_card("Leads", f"{vals[0]:,}"),
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                metric_card("Buyers", f"{vals[1]:,}", f"Conversion: {vals[3]}%",
-                            variant=_health_variant(vals[3])),
-                unsafe_allow_html=True,
-            )
-            st.markdown(
-                metric_card("Paid", f"{vals[2]:,}", f"Payment rate: {vals[4]}%"),
-                unsafe_allow_html=True,
-            )
-
-    # ── Lead source breakdown ─────────────────────────────────────
-    st.markdown(section_header("Lead Sources"), unsafe_allow_html=True)
-
-    src = leads["utm_campaign"].fillna("(direct / organic)").value_counts().reset_index()
-    src.columns = ["source", "count"]
-    top5 = src.head(5)
-    other_count = src["count"].iloc[5:].sum()
-    if other_count > 0:
-        top5 = pd.concat(
-            [top5, pd.DataFrame([{"source": "Other", "count": other_count}])],
-            ignore_index=True,
+    weakest = health["weakest_stage"]
+    if weakest is not None:
+        st.markdown(
+            alert(
+                f"⚠️ The biggest leak is at <b>{weakest['label']}</b>: only "
+                f"{weakest['rate']}% convert. Target benchmark is "
+                f"{weakest['benchmark']}% — a gap of {weakest['gap_pp']} pp.",
+                variant="warning",
+            ),
+            unsafe_allow_html=True,
         )
-    st.plotly_chart(
-        pie_chart(top5, "count", "source", title="Top Lead Sources"),
+
+    return health
+
+
+def _render_show_up_diagnosis(leads, webinars):
+    st.markdown(section_header("Show-up Diagnosis"), unsafe_allow_html=True)
+    if not webinars:
+        st.info("No webinar data available.")
+        return None
+
+    diag = calculate_show_up_diagnostics(leads, webinars)
+    per = diag["per_webinar"]
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown(
+            metric_card("Average Show-up", f"{diag['avg_show_up']}%",
+                        "Registration-weighted across all webinars"),
+            unsafe_allow_html=True,
+        )
+    with c2:
+        if diag["best"]:
+            st.markdown(
+                metric_card("Best Webinar",
+                            f"{round(diag['best']['rate'], 1)}%",
+                            diag["best"]["date"]),
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(metric_card("Best Webinar", "—"), unsafe_allow_html=True)
+    with c3:
+        if diag["worst"]:
+            st.markdown(
+                metric_card("Worst Webinar",
+                            f"{round(diag['worst']['rate'], 1)}%",
+                            diag["worst"]["date"], variant="danger"),
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(metric_card("Worst Webinar", "—"), unsafe_allow_html=True)
+
+    if per.empty:
+        st.info("No webinars with registered leads in this range.")
+        return diag
+
+    display = per.rename(columns={
+        "date": "Date",
+        "registered": "Registered",
+        "attended": "Attended",
+        "show_up_rate": "Show-up %",
+        "avg_days_before": "Avg Days Before",
+    })
+    st.dataframe(
+        display,
         use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Show-up %": st.column_config.ProgressColumn(
+                "Show-up %", min_value=0, max_value=100, format="%.1f%%"
+            ),
+            "Avg Days Before": st.column_config.NumberColumn(format="%.1f"),
+        },
     )
 
-    # ── Lead-to-sale time histogram ───────────────────────────────
-    st.markdown(section_header("Time from Lead to Sale"), unsafe_allow_html=True)
-
-    day_diffs = calculate_lead_to_sale_times(leads, purchases)
-    if day_diffs:
-        def _bucket(d: int) -> str:
-            if d <= 7:
-                return "0–7 days"
-            if d <= 14:
-                return "8–14 days"
-            if d <= 30:
-                return "15–30 days"
-            return "30+ days"
-
-        bucket_order = ["0–7 days", "8–14 days", "15–30 days", "30+ days"]
-        hist = pd.DataFrame({"days": day_diffs})
-        hist["bucket"] = hist["days"].apply(_bucket)
-        counts = (
-            hist["bucket"]
-            .value_counts()
-            .reindex(bucket_order, fill_value=0)
-            .reset_index()
+    plot_df = per[(per["registered"] > 0)].copy()
+    if len(plot_df) >= 2:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=plot_df["avg_days_before"], y=plot_df["show_up_rate"],
+            mode="markers+text",
+            text=plot_df["date"], textposition="top center",
+            marker=dict(size=10, color=COLORS["secondary"]),
+            name="Webinars",
+            hovertemplate="%{text}<br>Avg days before: %{x:.1f}<br>Show-up: %{y:.1f}%<extra></extra>",
+        ))
+        if len(plot_df) >= 3:
+            x = plot_df["avg_days_before"].to_numpy()
+            y = plot_df["show_up_rate"].to_numpy()
+            try:
+                slope, intercept = np.polyfit(x, y, 1)
+                xs = np.linspace(x.min(), x.max(), 50)
+                fig.add_trace(go.Scatter(
+                    x=xs, y=slope * xs + intercept,
+                    mode="lines", line=dict(color=COLORS["accent"], dash="dash"),
+                    name="Trend", hoverinfo="skip",
+                ))
+            except (np.linalg.LinAlgError, ValueError):
+                pass
+        fig.update_layout(
+            title_text="Show-up Rate vs Registration Lead Time",
+            xaxis_title="Avg days between registration and webinar",
+            yaxis_title="Show-up rate (%)",
+            showlegend=False,
         )
-        counts.columns = ["bucket", "count"]
-        st.plotly_chart(
-            bar_chart(counts, "bucket", "count", title="Days to Convert", text_col="count"),
-            use_container_width=True,
+        st.plotly_chart(apply_standard_layout(fig, height=380), use_container_width=True)
+
+    return diag
+
+
+def _render_lead_source_quality(leads, purchases):
+    st.markdown(section_header("Lead Source Quality"), unsafe_allow_html=True)
+    table = calculate_lead_source_quality(leads, purchases)
+    if table.empty:
+        st.info("No lead source data available.")
+        return table
+
+    total_leads = int(table["leads"].sum())
+    no_utm_row = table[table["campaign_full"] == "No UTM"]
+    no_utm_pct = (
+        round(int(no_utm_row["leads"].iloc[0]) / total_leads * 100, 1)
+        if not no_utm_row.empty and total_leads > 0 else 0.0
+    )
+
+    display = table.rename(columns={
+        "campaign_short": "Campaign",
+        "leads": "Leads",
+        "buyers": "Buyers",
+        "conv_rate": "Conv %",
+        "avg_days_to_purchase": "Avg Days to Purchase",
+    })[["Campaign", "Leads", "Buyers", "Conv %", "Avg Days to Purchase", "campaign_full"]]
+
+    st.dataframe(
+        display,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Campaign": st.column_config.TextColumn(
+                "Campaign", help="Hover row for full UTM campaign name"
+            ),
+            "campaign_full": st.column_config.TextColumn("Full UTM"),
+            "Conv %": st.column_config.NumberColumn(format="%.2f%%"),
+            "Avg Days to Purchase": st.column_config.NumberColumn(format="%.1f"),
+        },
+    )
+
+    if no_utm_pct > 50:
+        st.markdown(
+            alert(
+                f"⚠️ {no_utm_pct}% of leads have no UTM tracking. "
+                "Improving UTM coverage would unlock better source analysis.",
+                variant="warning",
+            ),
+            unsafe_allow_html=True,
         )
-        st.caption(f"Based on {len(day_diffs)} matched lead → purchase pairs. "
-                   f"Median: {sorted(day_diffs)[len(day_diffs)//2]} days.")
-    else:
+    return table
+
+
+def _render_time_to_convert(leads, purchases):
+    st.markdown(section_header("Time to Convert"), unsafe_allow_html=True)
+    convert = calculate_time_to_convert_buckets(leads, purchases)
+    buckets = convert["buckets"]
+    if int(buckets["count"].sum()) == 0:
         st.info("No matched lead-to-sale data available.")
+        return convert
 
-    # ── AI Insights ──────────────────────────────────────────────
-    stage_text = " -> ".join(f"{s[0]}: {s[1]:,}" for s in stages)
-    conv_rates = []
-    for i in range(len(stages) - 1):
-        prev_val = stages[i][1]
-        curr_val = stages[i + 1][1]
-        rate = round(curr_val / prev_val * 100, 1) if prev_val else 0.0
-        conv_rates.append(f"{stages[i][0]}->{stages[i+1][0]}: {rate}%")
-    median_days = sorted(day_diffs)[len(day_diffs) // 2] if day_diffs else "N/A"
+    st.plotly_chart(
+        bar_chart(buckets, "bucket", "count", title="Days to Convert",
+                  text_col="count", category_x=True),
+        use_container_width=True,
+    )
+    median = convert["median_days"]
+    if median is not None:
+        st.caption(
+            f"Median time to purchase: {median} days. Most buyers "
+            f"({convert['within_7_pct']}%) decide within 7 days — focus follow-up "
+            "energy in this window."
+        )
+    return convert
+
+
+def _render_ai(health, show_up, source_table, convert):
+    stage_text = " -> ".join(f"{s['name']}: {s['count']:,}" for s in health["stages"])
+    transition_text = ", ".join(
+        f"{t['label']}: {t['rate']}%" for t in health["transitions"]
+    )
+    weakest = health["weakest_stage"]
+    weakest_text = (
+        f"{weakest['label']} at {weakest['rate']}% (target {weakest['benchmark']}%)"
+        if weakest else "n/a"
+    )
+    show_up_text = (
+        f"avg {show_up['avg_show_up']}%, best {show_up['best']['date']} "
+        f"({round(show_up['best']['rate'], 1)}%), worst {show_up['worst']['date']} "
+        f"({round(show_up['worst']['rate'], 1)}%)"
+        if show_up and show_up["best"] and show_up["worst"]
+        else "n/a"
+    )
+    median = convert["median_days"] if convert else None
+    top_sources = (
+        source_table.head(5)[["campaign_short", "leads", "buyers", "conv_rate"]].to_string(index=False)
+        if source_table is not None and not source_table.empty else "n/a"
+    )
+
     context = (
         f"Funnel: {stage_text}\n"
-        f"Stage conversion rates: {', '.join(conv_rates)}\n"
-        f"This month leads: {this_m[0]:,}, buyers: {this_m[1]}, conv: {this_m[3]}%\n"
-        f"Last month leads: {last_m[0]:,}, buyers: {last_m[1]}, conv: {last_m[3]}%\n"
-        f"Lead sources: {src.head(5).to_string(index=False)}\n"
-        f"Lead-to-sale median: {median_days} days ({len(day_diffs)} matched pairs)"
+        f"Transitions: {transition_text}\n"
+        f"Weakest stage: {weakest_text}\n"
+        f"Show-up: {show_up_text}\n"
+        f"Median lead-to-purchase: {median if median is not None else 'n/a'} days\n"
+        f"Top lead sources:\n{top_sources}"
     )
     render_ai_insights("lead_pipeline", context)

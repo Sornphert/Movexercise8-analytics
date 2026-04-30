@@ -1202,3 +1202,575 @@ def match_objections_for_event(
 
     raw = objections_df["webinar_date"].fillna("").astype(str).str.strip()
     return objections_df[raw.isin(candidates)]
+
+
+def _direction(change_pct: float) -> str:
+    if change_pct > 0:
+        return "up"
+    if change_pct < 0:
+        return "down"
+    return "flat"
+
+
+def _pct_change(current: float, previous: float) -> float:
+    if previous == 0:
+        return 100.0 if current > 0 else 0.0
+    return round((current - previous) / previous * 100, 1)
+
+
+def calculate_monthly_summary(
+    leads: pd.DataFrame,
+    purchases: pd.DataFrame,
+    course_fee_full: float = 2688,
+    today: pd.Timestamp | None = None,
+) -> pd.DataFrame:
+    """One row per calendar month observed in either leads or purchases.
+
+    Columns: month, leads, buyers, conversion_rate, revenue.
+    - leads: leads registered in that month
+    - buyers: purchases dated in that month (refunds excluded)
+    - conversion_rate: buyers / leads * 100 (0 when leads == 0)
+    - revenue: sum of `collected` per buyer (full payment for Confirmed,
+      installment_amount × months_elapsed for Installment plans).
+      Outstanding amounts are excluded.
+
+    Sorted chronologically.
+    """
+    today = today or pd.Timestamp(date.today())
+
+    leads_dates = pd.to_datetime(leads["date"], errors="coerce") if not leads.empty else pd.Series(dtype="datetime64[ns]")
+    leads_by_month = leads_dates.dropna().dt.to_period("M").value_counts().sort_index()
+
+    if not purchases.empty:
+        bal = _balances_frame(purchases, course_fee_full, today)
+        bal_dates = pd.to_datetime(bal["date"], errors="coerce")
+        bal["_month"] = bal_dates.dt.to_period("M")
+        bal = bal.dropna(subset=["_month"])
+        buyers_by_month = bal.groupby("_month").size()
+        revenue_by_month = bal.groupby("_month")["collected"].sum()
+    else:
+        buyers_by_month = pd.Series(dtype="int64")
+        revenue_by_month = pd.Series(dtype="float64")
+
+    months = sorted(set(leads_by_month.index) | set(buyers_by_month.index))
+    rows = []
+    for m in months:
+        n_leads = int(leads_by_month.get(m, 0))
+        n_buyers = int(buyers_by_month.get(m, 0))
+        rev = float(revenue_by_month.get(m, 0.0))
+        conv = round(n_buyers / n_leads * 100, 1) if n_leads else 0.0
+        rows.append({
+            "month": str(m),
+            "leads": n_leads,
+            "buyers": n_buyers,
+            "conversion_rate": conv,
+            "revenue": rev,
+        })
+
+    return pd.DataFrame(rows, columns=["month", "leads", "buyers", "conversion_rate", "revenue"])
+
+
+def calculate_month_over_month(leads: pd.DataFrame, purchases: pd.DataFrame) -> dict:
+    """Compare current calendar month vs previous, using calculate_monthly_summary.
+
+    Returns dict keyed by 'leads', 'buyers', 'revenue'. Each value is
+    {current, previous, change_pct, direction}. All zero/flat if there's
+    less than 2 months of data.
+    """
+    keys = ["leads", "buyers", "revenue"]
+    empty = {k: {"current": 0, "previous": 0, "change_pct": 0.0, "direction": "flat"} for k in keys}
+
+    summary = calculate_monthly_summary(leads, purchases)
+    if len(summary) < 2:
+        return empty
+
+    cur_row = summary.iloc[-1]
+    prev_row = summary.iloc[-2]
+
+    out = {}
+    for k in keys:
+        cur = float(cur_row[k])
+        prev = float(prev_row[k])
+        change = _pct_change(cur, prev)
+        out[k] = {
+            "current": cur,
+            "previous": prev,
+            "change_pct": change,
+            "direction": _direction(change),
+        }
+    return out
+
+
+def calculate_engagement_over_time(webinars: dict, rolling_window: int = 3) -> pd.DataFrame:
+    """One row per webinar: date label, avg_duration, rolling_avg.
+
+    Sorted chronologically by webinar start date (calculate_webinar_summary
+    already returns events in order).
+    """
+    summaries = calculate_webinar_summary(webinars)
+    if not summaries:
+        return pd.DataFrame(columns=["date", "avg_duration", "rolling_avg"])
+
+    df = pd.DataFrame([
+        {"date": s["label"], "avg_duration": s["avg_duration"]}
+        for s in summaries
+    ])
+    df["rolling_avg"] = df["avg_duration"].rolling(window=rolling_window, min_periods=1).mean().round(1)
+    return df
+
+
+# ---------------------------------------------------------------------------
+# E-book Survey
+# ---------------------------------------------------------------------------
+
+_NO_ANSWER = "(no answer)"
+
+# Bucket free-text objections into a small, readable set. Order matters:
+# "Already joined" must beat "Not the right time" if both somehow match.
+_OBJECTION_PATTERNS = [
+    (r"already joined|joined already|^joined$|signed up", "Already joined"),
+    (r"budget|financ|cost|money|afford|fee|price|ringgit|tight", "Budget / Financial"),
+    (r"discuss.*(spouse|husband|wife|partner|family)|spouse.*discuss|husband", "Need spouse / family buy-in"),
+    (r"time|schedul|busy|commit", "Time / Schedule"),
+    (r"right time|not ready|still consider|thinking|decide|need more time", "Not the right time"),
+    (r"suitab|right for|fit for|trial first|test it|content of the course|recording|online", "Unsure of program fit"),
+    (r"more info|understand more|know more|find out more|further", "Wants more info first"),
+]
+
+
+def _canonicalize_objection(value) -> str:
+    s = _normalize_blank(value)
+    if s == _NO_ANSWER:
+        return _NO_ANSWER
+    low = s.lower()
+    for pattern, label in _OBJECTION_PATTERNS:
+        if re.search(pattern, low):
+            return label
+    return "Other"
+
+
+_ROLE_CANONICAL = {
+    "Mother": "Mother",
+    "Father": "Father",
+    "Educator / Teacher": "Educator / Teacher",
+    "Teacher / Educator": "Educator / Teacher",
+    "Grandparent / Family caregiver": "Grandparent / Caregiver",
+    "Grandparents": "Grandparent / Caregiver",
+    "Grandparent": "Grandparent / Caregiver",
+    "Other": "Other",
+}
+
+
+_FOLLOWUP_SHORT = [
+    (r"core program|review.*before deciding|book a call", "Core program info first"),
+    (r"success stor", "Success stories"),
+    (r"call.*identify|10.?15.*minute|diagnostic", "10–15 min diagnostic call"),
+]
+
+
+def _shorten_followup(value) -> str:
+    s = _normalize_blank(value)
+    if s == _NO_ANSWER:
+        return _NO_ANSWER
+    low = s.lower()
+    for pattern, short in _FOLLOWUP_SHORT:
+        if re.search(pattern, low):
+            return short
+    return "Other"
+
+
+def _normalize_blank(value) -> str:
+    s = str(value).strip() if value is not None else ""
+    if s in ("", "-", "nan", "None"):
+        return _NO_ANSWER
+    return s
+
+
+def _purchase_phone_set(purchases: pd.DataFrame) -> set:
+    if purchases.empty or "norm_phone" not in purchases.columns:
+        return set()
+    return set(purchases["norm_phone"].dropna())
+
+
+def _flag_converted(survey: pd.DataFrame, purchases: pd.DataFrame) -> pd.Series:
+    phones = _purchase_phone_set(purchases)
+    if not phones or "norm_phone" not in survey.columns:
+        return pd.Series([False] * len(survey), index=survey.index)
+    return survey["norm_phone"].isin(phones).fillna(False)
+
+
+def calculate_ebook_overview(survey: pd.DataFrame, purchases: pd.DataFrame) -> dict:
+    total = len(survey)
+    if total == 0:
+        return {
+            "total_responses": 0,
+            "converted_count": 0,
+            "conversion_rate": 0.0,
+            "top_objection": "—",
+            "top_objection_count": 0,
+            "answer_rate": 0.0,
+        }
+
+    converted_mask = _flag_converted(survey, purchases)
+    converted_count = int(converted_mask.sum())
+    conv_rate = round(converted_count / total * 100, 1)
+
+    obj_canon = survey["objection"].apply(_canonicalize_objection)
+    answered_mask = obj_canon != _NO_ANSWER
+    answer_rate = round(answered_mask.sum() / total * 100, 1)
+
+    if answered_mask.any():
+        # Exclude "Already joined" from "top objection" since they're buyers, not blockers.
+        blocking = obj_canon[answered_mask & (obj_canon != "Already joined")]
+        if not blocking.empty:
+            counts = blocking.value_counts()
+            top_obj = counts.idxmax()
+            top_count = int(counts.iloc[0])
+        else:
+            top_obj, top_count = "—", 0
+    else:
+        top_obj, top_count = "—", 0
+
+    return {
+        "total_responses": total,
+        "converted_count": converted_count,
+        "conversion_rate": conv_rate,
+        "top_objection": top_obj,
+        "top_objection_count": top_count,
+        "answer_rate": answer_rate,
+    }
+
+
+def calculate_ebook_objections(survey: pd.DataFrame, purchases: pd.DataFrame) -> pd.DataFrame:
+    if survey.empty:
+        return pd.DataFrame(columns=["objection", "count", "converted", "conv_rate"])
+    converted_mask = _flag_converted(survey, purchases)
+    df = survey.copy()
+    df["_obj"] = df["objection"].apply(_canonicalize_objection)
+    df["_conv"] = converted_mask
+    grouped = df.groupby("_obj").agg(
+        count=("_obj", "size"),
+        converted=("_conv", "sum"),
+    ).reset_index().rename(columns={"_obj": "objection"})
+    grouped["converted"] = grouped["converted"].astype(int)
+    grouped["conv_rate"] = (grouped["converted"] / grouped["count"] * 100).round(1)
+    return grouped.sort_values("count", ascending=False).reset_index(drop=True)
+
+
+def calculate_ebook_intent_conversion(survey: pd.DataFrame, purchases: pd.DataFrame) -> pd.DataFrame:
+    if survey.empty:
+        return pd.DataFrame(columns=["intent", "count", "converted", "conv_rate"])
+    converted_mask = _flag_converted(survey, purchases)
+    df = survey.copy()
+    df["_intent"] = df["intent"].apply(_normalize_blank)
+    df["_conv"] = converted_mask
+    grouped = df.groupby("_intent").agg(
+        count=("_intent", "size"),
+        converted=("_conv", "sum"),
+    ).reset_index().rename(columns={"_intent": "intent"})
+    grouped["converted"] = grouped["converted"].astype(int)
+    grouped["conv_rate"] = (grouped["converted"] / grouped["count"] * 100).round(1)
+    return grouped.sort_values("count", ascending=False).reset_index(drop=True)
+
+
+def calculate_ebook_audience(survey: pd.DataFrame) -> dict:
+    if survey.empty:
+        empty = pd.DataFrame(columns=["label", "count"])
+        return {"role_breakdown": empty.copy(), "age_breakdown": empty.copy(), "followup_breakdown": empty.copy()}
+
+    role_norm = survey["role"].apply(_normalize_blank).map(lambda s: _ROLE_CANONICAL.get(s, s))
+    role_df = role_norm.value_counts().rename_axis("label").reset_index(name="count")
+
+    age_df = survey["age_bucket"].value_counts().rename_axis("label").reset_index(name="count")
+    # Stable ordering for age buckets
+    order = {"0-3": 0, "4-6": 1, "7-9": 2, "10-12": 3, "13+": 4, "Unknown": 5}
+    age_df["_o"] = age_df["label"].map(order).fillna(99)
+    age_df = age_df.sort_values("_o").drop(columns="_o").reset_index(drop=True)
+
+    followup_short = survey["preferred_followup"].apply(_shorten_followup)
+    followup_df = followup_short.value_counts().rename_axis("label").reset_index(name="count")
+
+    return {
+        "role_breakdown": role_df,
+        "age_breakdown": age_df,
+        "followup_breakdown": followup_df,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Lead Pipeline (rebuild)
+# ---------------------------------------------------------------------------
+
+_TRANSITION_THRESHOLDS = [
+    ("Leads → Attended",   (40.0, 25.0)),
+    ("Attended → Messaged", (25.0, 15.0)),
+    ("Messaged → Sale",     (30.0, 20.0)),
+    ("Sale → Paid",         (70.0, 50.0)),
+]
+
+
+def _health_band(rate: float, green: float, yellow: float) -> str:
+    if rate > green:
+        return "green"
+    if rate >= yellow:
+        return "yellow"
+    return "red"
+
+
+def calculate_funnel_health(
+    leads_df: pd.DataFrame,
+    purchases_df: pd.DataFrame,
+    webinars_dict: dict,
+    objections_df: pd.DataFrame,
+) -> dict:
+    """Wrap calculate_funnel_stages() with rates + weakest-stage diagnosis."""
+    raw_stages = calculate_funnel_stages(leads_df, purchases_df, webinars_dict, objections_df)
+
+    stages = []
+    for i, (name, count) in enumerate(raw_stages):
+        if i == 0:
+            stages.append({"name": name, "count": int(count), "rate_from_previous": None})
+        else:
+            prev = raw_stages[i - 1][1]
+            rate = (count / prev * 100) if prev > 0 else 0.0
+            stages.append({"name": name, "count": int(count), "rate_from_previous": round(rate, 1)})
+
+    transitions = []
+    for i, (label, thresholds) in enumerate(_TRANSITION_THRESHOLDS):
+        denom = raw_stages[i][1]
+        numer = raw_stages[i + 1][1]
+        rate = (numer / denom * 100) if denom > 0 else 0.0
+        green, yellow = thresholds
+        transitions.append({
+            "label": label,
+            "rate": round(rate, 1),
+            "numer": int(numer),
+            "denom": int(denom),
+            "thresholds": thresholds,
+            "health": _health_band(rate, green, yellow),
+        })
+
+    weakest = None
+    for t in transitions:
+        green = t["thresholds"][0]
+        gap = green - t["rate"]
+        if weakest is None or gap > weakest["gap_pp"]:
+            weakest = {
+                "label": t["label"],
+                "rate": t["rate"],
+                "benchmark": green,
+                "gap_pp": round(gap, 1),
+            }
+
+    return {"stages": stages, "transitions": transitions, "weakest_stage": weakest}
+
+
+_NO_UTM = "No UTM"
+_DATE_PREFIX_RE = re.compile(r"^\d{6}\s+")
+_MY_DARYL_RE = re.compile(r"^my\s+daryl\s+", re.IGNORECASE)
+
+
+def shorten_campaign_name(full_name) -> str:
+    """Strip leading 6-digit date and 'My Daryl ' prefix; bucket missing as 'No UTM'."""
+    if full_name is None or (isinstance(full_name, float) and pd.isna(full_name)):
+        return _NO_UTM
+    s = str(full_name).strip()
+    if s == "" or s == "0" or s.lower() == "nan":
+        return _NO_UTM
+    out = _DATE_PREFIX_RE.sub("", s).strip()
+    out = _MY_DARYL_RE.sub("", out).strip()
+    return out if out else s
+
+
+def _bucket_utm(value) -> str:
+    """Return the raw key used for grouping: 'No UTM' or the original string."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return _NO_UTM
+    s = str(value).strip()
+    if s == "" or s == "0" or s.lower() == "nan":
+        return _NO_UTM
+    return s
+
+
+def calculate_lead_source_quality(
+    leads_df: pd.DataFrame,
+    purchases_df: pd.DataFrame,
+    top_n: int = 10,
+) -> pd.DataFrame:
+    """Per-campaign lead/buyer counts with conversion + avg days to purchase."""
+    cols = ["campaign_short", "campaign_full", "leads", "buyers", "conv_rate", "avg_days_to_purchase"]
+    if leads_df.empty:
+        return pd.DataFrame(columns=cols)
+
+    leads = leads_df.copy()
+    leads["_utm_key"] = leads["utm_campaign"].apply(_bucket_utm)
+
+    # Build per-buyer earliest-lead-date lookup for "avg days to purchase"
+    email_first = leads.dropna(subset=["norm_email"]).groupby("norm_email")["date"].min()
+    phone_first = leads.dropna(subset=["norm_phone"]).groupby("norm_phone")["date"].min()
+
+    # Map norm_email/phone -> utm key (use earliest lead's utm)
+    leads_sorted = leads.sort_values("date")
+    email_to_utm = leads_sorted.dropna(subset=["norm_email"]).drop_duplicates("norm_email", keep="first").set_index("norm_email")["_utm_key"]
+    phone_to_utm = leads_sorted.dropna(subset=["norm_phone"]).drop_duplicates("norm_phone", keep="first").set_index("norm_phone")["_utm_key"]
+
+    # Buyers attributed to a utm_key + days-to-purchase
+    buyer_records: dict[str, list[int]] = {}
+    seen_buyers: dict[str, set] = {}  # utm_key -> set of buyer identifiers (avoid double-count)
+    for _, row in purchases_df.iterrows():
+        utm_key = None
+        lead_date = None
+        buyer_id = None
+        if pd.notna(row.get("norm_phone")) and row["norm_phone"] in phone_to_utm.index:
+            utm_key = phone_to_utm[row["norm_phone"]]
+            lead_date = phone_first.get(row["norm_phone"])
+            buyer_id = ("phone", row["norm_phone"])
+        if utm_key is None and pd.notna(row.get("norm_email")) and row["norm_email"] in email_to_utm.index:
+            utm_key = email_to_utm[row["norm_email"]]
+            lead_date = email_first.get(row["norm_email"])
+            buyer_id = ("email", row["norm_email"])
+        if utm_key is None:
+            continue
+        seen = seen_buyers.setdefault(utm_key, set())
+        if buyer_id in seen:
+            continue
+        seen.add(buyer_id)
+
+        days = None
+        if lead_date is not None and pd.notna(row.get("date")):
+            diff = (row["date"] - lead_date).days
+            if diff >= 0:
+                days = int(diff)
+        buyer_records.setdefault(utm_key, []).append(days if days is not None else -1)
+
+    # Aggregate
+    rows = []
+    for utm_key, group in leads.groupby("_utm_key"):
+        lead_count = int(len(group))
+        buyer_days = [d for d in buyer_records.get(utm_key, []) if d >= 0]
+        buyer_count = int(len(buyer_records.get(utm_key, [])))
+        conv_rate = round(buyer_count / lead_count * 100, 2) if lead_count > 0 else 0.0
+        avg_days = round(sum(buyer_days) / len(buyer_days), 1) if buyer_days else None
+        rows.append({
+            "campaign_short": shorten_campaign_name(utm_key) if utm_key != _NO_UTM else _NO_UTM,
+            "campaign_full": utm_key,
+            "leads": lead_count,
+            "buyers": buyer_count,
+            "conv_rate": conv_rate,
+            "avg_days_to_purchase": avg_days,
+        })
+
+    df = pd.DataFrame(rows, columns=cols)
+    if df.empty:
+        return df
+
+    no_utm_row = df[df["campaign_full"] == _NO_UTM]
+    tracked = df[df["campaign_full"] != _NO_UTM].sort_values("leads", ascending=False)
+
+    top = tracked.head(top_n)
+    rest = tracked.iloc[top_n:]
+
+    parts = [top]
+    if not rest.empty:
+        rest_buyers = int(rest["buyers"].sum())
+        rest_leads = int(rest["leads"].sum())
+        rest_conv = round(rest_buyers / rest_leads * 100, 2) if rest_leads > 0 else 0.0
+        rest_days_vals = []
+        for full in rest["campaign_full"]:
+            for d in buyer_records.get(full, []):
+                if d >= 0:
+                    rest_days_vals.append(d)
+        rest_avg_days = round(sum(rest_days_vals) / len(rest_days_vals), 1) if rest_days_vals else None
+        parts.append(pd.DataFrame([{
+            "campaign_short": "Others",
+            "campaign_full": f"Others ({len(rest)} campaigns)",
+            "leads": rest_leads,
+            "buyers": rest_buyers,
+            "conv_rate": rest_conv,
+            "avg_days_to_purchase": rest_avg_days,
+        }]))
+    if not no_utm_row.empty:
+        parts.append(no_utm_row)
+
+    return pd.concat(parts, ignore_index=True)
+
+
+def calculate_show_up_diagnostics(
+    leads_df: pd.DataFrame,
+    webinars_dict: dict,
+) -> dict:
+    """Per-webinar registration→attendance summary + best/worst/average."""
+    from utils.data_loader import get_webinar_registration_summary  # local to avoid cycles
+
+    cols = ["date", "registered", "attended", "show_up_rate", "avg_days_before"]
+    if not webinars_dict:
+        return {
+            "per_webinar": pd.DataFrame(columns=cols),
+            "avg_show_up": 0.0,
+            "best": None,
+            "worst": None,
+        }
+
+    summary = get_webinar_registration_summary(leads_df, webinars_dict)
+    rows = []
+    for date_str, vals in summary.items():
+        rows.append({
+            "date": date_str,
+            "registered": vals["registered_count"],
+            "attended": vals["unique_attended"],
+            "show_up_rate": vals["show_up_rate"],
+            "avg_days_before": vals["avg_days_before_webinar"],
+        })
+
+    df = pd.DataFrame(rows, columns=cols).sort_values("date", ascending=False).reset_index(drop=True)
+
+    # Registration-weighted average across webinars with at least 1 registration
+    has_regs = df[df["registered"] > 0]
+    if has_regs.empty:
+        avg_show_up = 0.0
+        best = None
+        worst = None
+    else:
+        total_attended = int(has_regs["attended"].sum())
+        total_registered = int(has_regs["registered"].sum())
+        avg_show_up = round(total_attended / total_registered * 100, 1) if total_registered > 0 else 0.0
+        best_row = has_regs.loc[has_regs["show_up_rate"].idxmax()]
+        worst_row = has_regs.loc[has_regs["show_up_rate"].idxmin()]
+        best = {"date": best_row["date"], "rate": float(best_row["show_up_rate"])}
+        worst = {"date": worst_row["date"], "rate": float(worst_row["show_up_rate"])}
+
+    return {"per_webinar": df, "avg_show_up": avg_show_up, "best": best, "worst": worst}
+
+
+def calculate_time_to_convert_buckets(
+    leads_df: pd.DataFrame,
+    purchases_df: pd.DataFrame,
+) -> dict:
+    """Bucket buyers' time-to-purchase (0-7, 8-14, 15-30, 30+ days) + median + within-7%."""
+    days = calculate_lead_to_sale_times(leads_df, purchases_df)
+    bucket_order = ["0-7", "8-14", "15-30", "30+"]
+    counts = {b: 0 for b in bucket_order}
+    for d in days:
+        if d <= 7:
+            counts["0-7"] += 1
+        elif d <= 14:
+            counts["8-14"] += 1
+        elif d <= 30:
+            counts["15-30"] += 1
+        else:
+            counts["30+"] += 1
+    bucket_df = pd.DataFrame(
+        {"bucket": bucket_order, "count": [counts[b] for b in bucket_order]}
+    )
+
+    if days:
+        sorted_days = sorted(days)
+        n = len(sorted_days)
+        median_days = int(sorted_days[n // 2]) if n % 2 == 1 else int(round((sorted_days[n // 2 - 1] + sorted_days[n // 2]) / 2))
+        within_7 = sum(1 for d in days if d <= 7)
+        within_7_pct = round(within_7 / n * 100, 1)
+    else:
+        median_days = None
+        within_7_pct = 0.0
+
+    return {"buckets": bucket_df, "median_days": median_days, "within_7_pct": within_7_pct}
