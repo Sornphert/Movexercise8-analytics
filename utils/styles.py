@@ -79,6 +79,38 @@ MAIN_CSS = """
 .ad-y { background: #FFF8E7; color: #5A4B1A; border-left: 3px solid #D4A843; }
 .ad-r { background: #FDECEB; color: #7A2921; border-left: 3px solid #E76F51; }
 
+/* ── decision panels — Kill / Scale / Test ── */
+.dp {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border-left: 4px solid #6C757D;
+    height: 100%;
+}
+.dp h4 {
+    font-family: 'Fraunces', serif;
+    font-size: 1rem;
+    margin: 0 0 0.6rem;
+    color: #1B4332;
+}
+.dp ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: #1B4332;
+}
+.dp .foot {
+    margin: 0.7rem 0 0;
+    font-size: 0.78rem;
+    color: #6C757D;
+    font-weight: 600;
+}
+.dp-r { border-left-color: #E76F51; }
+.dp-g { border-left-color: #40916C; }
+.dp-y { border-left-color: #D4A843; }
+
 /* ── hide Streamlit chrome ── */
 #MainMenu { visibility: hidden; }
 footer { visibility: hidden; }
@@ -117,3 +149,13 @@ _ALERT_CLASS = {"info": "ad-b", "success": "ad-g", "warning": "ad-y", "danger": 
 def alert(message: str, variant: str = "info") -> str:
     cls = f"ad {_ALERT_CLASS.get(variant, 'ad-b')}"
     return f'<div class="{cls}">{message}</div>'
+
+
+def decision_panel(title: str, items: list, footer: str, variant: str = "r") -> str:
+    """variant: 'r' (kill/red), 'g' (scale/green), 'y' (test/yellow)."""
+    cls = f"dp dp-{variant}"
+    if not items:
+        return f'<div class="{cls}"><h4>{title}</h4><p class="foot">{footer}</p></div>'
+    bullets = "".join(f"<li>{it}</li>" for it in items)
+    return (f'<div class="{cls}"><h4>{title}</h4>'
+            f'<ul>{bullets}</ul><p class="foot">{footer}</p></div>')

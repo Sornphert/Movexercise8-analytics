@@ -695,6 +695,43 @@ def load_config() -> dict:
         return json.load(f)
 
 
+def calculate_ad_buyer_attribution(
+    purchases_df: pd.DataFrame,
+    meta_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Match purchases to ad creatives via utm_content → ad_name.
+
+    Returns one row per unique ad_name with buyers/revenue/first_buyer_date/
+    last_buyer_date. Ads with no matching purchases get 0/0.0/NaT.
+    """
+    ad_names = meta_df["ad_name"].dropna().unique() if not meta_df.empty else []
+    out = pd.DataFrame({"ad_name": ad_names})
+    out["_key"] = out["ad_name"].astype(str).str.strip().str.lower()
+
+    if purchases_df.empty or "utm_content" not in purchases_df.columns:
+        out["buyers"] = 0
+        out["revenue"] = 0.0
+        out["first_buyer_date"] = pd.NaT
+        out["last_buyer_date"] = pd.NaT
+        return out.drop(columns="_key")
+
+    p = purchases_df.copy()
+    p["_key"] = p["utm_content"].astype(str).str.strip().str.lower()
+    p = p[p["_key"] != ""]
+    p["_amount"] = pd.to_numeric(p["amount"], errors="coerce").fillna(0.0)
+    grouped = p.groupby("_key").agg(
+        buyers=("_amount", "count"),
+        revenue=("_amount", "sum"),
+        first_buyer_date=("date", "min"),
+        last_buyer_date=("date", "max"),
+    ).reset_index()
+
+    merged = out.merge(grouped, on="_key", how="left")
+    merged["buyers"] = merged["buyers"].fillna(0).astype(int)
+    merged["revenue"] = merged["revenue"].fillna(0.0)
+    return merged.drop(columns="_key")
+
+
 def load_all() -> dict:
     leads = load_leads()
     purchases = load_purchases()
@@ -711,10 +748,14 @@ def load_all() -> dict:
         | leads["norm_phone"].isin(purchase_phones)
     )
 
+    meta = load_meta_ads()
+    attribution = calculate_ad_buyer_attribution(purchases, meta)
+
     return {
         "leads": leads,
         "purchases": purchases,
-        "meta": load_meta_ads(),
+        "meta": meta,
+        "ad_attribution": attribution,
         "objections": load_objections(),
         "webinars": webinars,
         "ebook": load_ebook_survey(),
@@ -733,6 +774,10 @@ if __name__ == "__main__":
     print(f"Objections:  {len(data['objections']):,} rows")
     print(f"Webinars:    {len(data['webinars'])} sessions")
     print(f"Converted:   {data['leads']['converted'].sum():,} leads matched a purchase")
+    attr = data["ad_attribution"]
+    print(f"Attribution: {len(attr):,} ads, "
+          f"{int(attr['buyers'].sum())} buyers attributed, "
+          f"RM {attr['revenue'].sum():,.0f} attributed revenue")
     print()
     for key, w in data["webinars"].items():
         print(f"  {key}: {w['unique_attendees']} attendees, "

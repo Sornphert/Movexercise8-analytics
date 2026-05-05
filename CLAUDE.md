@@ -22,6 +22,7 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
   - `purchases` — DataFrame, enriched with an `inferred_webinar` column (nearest webinar on/before the purchase date, within 14 days)
   - `webinars` — **dict** keyed by session id, not a DataFrame. Each value has `date`, attendee lists, etc.
   - `meta` — DataFrame of Meta Ads rows
+  - `ad_attribution` — DataFrame matching ad creatives to attributed buyers/revenue via utm_content
   - `objections` — DataFrame, includes a `_filter_date` column used by the sidebar date filter
   - `ebook` — DataFrame of e-book download survey responses (134+ rows). Phone-normalized via `normalize_phone` and age-bucketed via `parse_child_age_bucket` at load time. Pulled live from Google Sheets (5-min TTL); empty DataFrame if Sheets unavailable.
   - `config` — parsed `data/config.json`
@@ -67,6 +68,7 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - `meta_ads.csv` is auto-pulled from the Meta Marketing API — do not hand-edit. Run `python scripts/fetch_meta_ads.py` to refresh. Ranking columns use literal `"-"` for missing data (the dashboard filters on this exact string).
 - `load_all()` enriches purchases with an `inferred_webinar` column (nearest webinar on/before the purchase date, within 14 days). Use `get_webinar_sales_summary()` from `utils/data_loader.py` for per-webinar sales breakdowns.
 - `load_all()` enriches leads with a `registered_for_webinar` column (next webinar within 9 days). Use `get_webinar_registration_summary()` from `utils/data_loader.py` for per-webinar registration breakdowns. The 9-day window covers ad campaigns that run between Mon-Thu webinar dates.
+- Ad-to-buyer attribution requires `utm_content` on `purchases.csv` to match `ad_name` in `meta_ads.csv`. Coverage is partial (~80% of buyers have UTMs). Ads with `buyers=0` in `data["ad_attribution"]` may have actual buyers we couldn't attribute via UTM.
 
 ## Testing
 - Run locally with `streamlit run app.py`
@@ -77,7 +79,7 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - [done] Phase 1: Overview, Sales & Revenue, Lead Pipeline (rebuilt with funnel-health, show-up diagnosis, lead-source quality, time-to-convert), Webinar Performance
 - [done] Phase 2a: Failed Leads (objection breakdown, recoverability, audience profile)
 - [removed] Phase 2b: Cohort Analysis tab. The monthly cohort table + conversion-rate-by-month chart now live in the Overview tab as "Monthly Performance" (with a month-over-month delta panel). The engagement trend line moved to the Webinar Performance tab as "Engagement Over Time" with a 3-webinar rolling average. The funnel heatmap and webinar-cohort comparison were dropped (duplicated existing views). `build_monthly_cohorts`, `build_webinar_cohorts`, `build_cohort_heatmap`, `calculate_cohort_summary`, and `calculate_engagement_trend` are kept in `utils/metrics.py` for potential reuse but are currently unreferenced.
-- [done] Phase 3: Ad Spend & ROI (spend overview, creative comparison, top ads, quality rankings, ROI analysis)
+- [done] Phase 3: Ad Spend & ROI (rebuilt with snapshot, trend, decision panels, creative type, campaign performance, fatigue tracker, top ads, quality rankings, ROI analysis)
 - [done] Phase 4: AI suggestions per section (Gemini 2.5 Flash), AI chatbot tab
 - [done] E-book Survey tab — surfaces self-reported objections + intent vs actual conversion, with canonical-bucket regex matching for the free-text "What stops you from joining" column. Sheet config in `[sheets]` section of `.streamlit/secrets.toml` (`ebook_sheet_id`, `ebook_worksheet_gid`).
 - [done] Purchases auto-pull from Google Sheets + webinar attribution (`inferred_webinar`, "Sales from latest" Overview card)

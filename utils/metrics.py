@@ -786,157 +786,468 @@ def calculate_cohort_summary(
 # Ad Spend & ROI
 # ---------------------------------------------------------------------------
 
-def calculate_ad_overview(meta: pd.DataFrame) -> dict:
-    """Overall ad spend summary stats."""
-    total_spend = float(meta["amount_spent"].sum())
-    total_results = float(meta["results"].sum())
-    total_clicks = float(meta["link_clicks"].sum())
-    total_impressions = float(meta["impressions"].sum())
-    total_reach = float(meta["reach"].sum())
-
-    cpl = round(total_spend / total_results, 2) if total_results else 0.0
-    cpc = round(total_spend / total_clicks, 2) if total_clicks else 0.0
-    ctr = round(total_clicks / total_impressions * 100, 2) if total_impressions else 0.0
-
-    return {
-        "total_spend": total_spend,
-        "total_results": int(total_results),
-        "total_clicks": int(total_clicks),
-        "total_impressions": int(total_impressions),
-        "total_reach": int(total_reach),
-        "cpl": cpl,
-        "cpc": cpc,
-        "ctr": ctr,
-    }
+def shorten_ad_name(full_name) -> str:
+    """'291025 MY Daryl Movexercise8 LP-Ver1 Video 003' → 'Video 003'."""
+    if not isinstance(full_name, str):
+        return str(full_name)
+    s = full_name.strip()
+    s = re.sub(r"^\d{6}\s+", "", s)
+    s = re.sub(r"^MY\s+Daryl\s+", "", s, flags=re.I)
+    s = re.sub(r"^(Movexercise8|M8)\s+", "", s, flags=re.I)
+    s = re.sub(r"^LP-Ver[12]\s+", "", s, flags=re.I)
+    return s if s else full_name
 
 
-def calculate_ad_performance(meta: pd.DataFrame) -> pd.DataFrame:
-    """Per-ad performance metrics. Only includes ads with spend > 0."""
-    active = meta[meta["amount_spent"] > 0].copy()
-    active["cpl"] = active.apply(
-        lambda r: round(r["amount_spent"] / r["results"], 2)
-        if pd.notna(r["results"]) and r["results"] > 0 else None,
-        axis=1,
+def _aggregate_meta_by_ad(meta_df: pd.DataFrame) -> pd.DataFrame:
+    """Per-ad rollup of meta_ads daily rows."""
+    cols = ["ad_name", "campaign_name", "spend", "leads", "clicks",
+            "impressions", "reach", "frequency", "ctr", "cpl",
+            "days_running", "quality_ranking", "last_date"]
+    if meta_df.empty:
+        return pd.DataFrame(columns=cols)
+
+    df = meta_df.copy()
+    df["reporting_starts"] = pd.to_datetime(df["reporting_starts"], errors="coerce")
+    spent_mask = df["amount_spent"].fillna(0) > 0
+
+    # days_running: unique reporting dates where spend > 0 (per ad)
+    days = (
+        df[spent_mask].groupby("ad_name")["reporting_starts"]
+        .nunique().rename("days_running")
     )
-    active["cpc"] = active.apply(
-        lambda r: round(r["amount_spent"] / r["link_clicks"], 2)
-        if pd.notna(r["link_clicks"]) and r["link_clicks"] > 0 else None,
-        axis=1,
-    )
-    active["ctr"] = active.apply(
-        lambda r: round(r["link_clicks"] / r["impressions"] * 100, 2)
-        if pd.notna(r["impressions"]) and r["impressions"] > 0 else None,
-        axis=1,
-    )
-    active["creative_type"] = active["ad_name"].apply(
-        lambda n: "Video" if "Video" in n else ("Image" if "Image" in n else "Other")
-    )
-    return active.sort_values("amount_spent", ascending=False).reset_index(drop=True)
 
-
-def calculate_creative_comparison(meta: pd.DataFrame) -> pd.DataFrame:
-    """Compare Video vs Image ad performance."""
-    active = meta[meta["amount_spent"] > 0].copy()
-    active["creative_type"] = active["ad_name"].apply(
-        lambda n: "Video" if "Video" in n else ("Image" if "Image" in n else "Other")
-    )
-    grouped = active.groupby("creative_type").agg(
-        ads=("ad_name", "count"),
+    grouped = df.groupby("ad_name").agg(
+        campaign_name=("campaign_name", "first"),
         spend=("amount_spent", "sum"),
-        results=("results", "sum"),
+        leads=("results", "sum"),
         clicks=("link_clicks", "sum"),
         impressions=("impressions", "sum"),
+        reach=("reach", "max"),
+        quality_ranking=("quality_ranking", "first"),
+        last_date=("reporting_starts", "max"),
     ).reset_index()
-    grouped["cpl"] = grouped.apply(
-        lambda r: round(r["spend"] / r["results"], 2) if r["results"] > 0 else 0.0, axis=1
-    )
-    grouped["ctr"] = grouped.apply(
-        lambda r: round(r["clicks"] / r["impressions"] * 100, 2) if r["impressions"] > 0 else 0.0, axis=1
-    )
-    return grouped
+    grouped = grouped.merge(days, on="ad_name", how="left")
+    grouped["days_running"] = grouped["days_running"].fillna(0).astype(int)
+    grouped["frequency"] = (grouped["impressions"] / grouped["reach"]).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+    grouped["ctr"] = (grouped["clicks"] / grouped["impressions"] * 100).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+    grouped["cpl"] = (grouped["spend"] / grouped["leads"]).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+    return grouped[cols]
 
 
-def calculate_ad_quality(meta: pd.DataFrame) -> dict:
-    """Distribution of quality, engagement, and conversion rankings."""
-    active = meta[(meta["amount_spent"] > 0) & (meta["quality_ranking"] != "-")]
-    result = {}
-    for col in ["quality_ranking", "engagement_ranking", "conversion_ranking"]:
-        counts = active[col].value_counts().reset_index()
-        counts.columns = ["ranking", "count"]
-        result[col] = counts
-    return result
+def _windowed(df: pd.DataFrame, date_col: str, end: pd.Timestamp, days: int) -> pd.DataFrame:
+    if df.empty or date_col not in df.columns:
+        return df.iloc[0:0]
+    start = end - pd.Timedelta(days=days - 1)
+    s = pd.to_datetime(df[date_col], errors="coerce")
+    return df[(s >= start) & (s <= end)]
 
 
-def calculate_ad_roi(
-    meta: pd.DataFrame,
-    leads: pd.DataFrame,
-    purchases: pd.DataFrame,
-    config: dict,
+def _pct_change(curr: float, prev: float) -> float:
+    if prev == 0:
+        return 0.0 if curr == 0 else 100.0
+    return round((curr - prev) / prev * 100, 1)
+
+
+def calculate_ad_spend_snapshot(
+    meta_df: pd.DataFrame,
+    purchases_df: pd.DataFrame,
+    attribution_df: pd.DataFrame,
+    comparison_days: int = 7,
 ) -> dict:
-    """Calculate ROI by linking ads → leads (via utm_content) → purchases."""
-    total_spend = float(meta["amount_spent"].sum())
-    total_revenue = float(purchases["amount"].sum())
-    roas = round(total_revenue / total_spend, 2) if total_spend else 0.0
+    """5 hero-card metrics with current-vs-previous-window deltas."""
+    if meta_df.empty:
+        empty = {"value": 0, "previous": 0, "change_pct": 0.0}
+        return {"spend": {**empty, "direction": "flat"},
+                "leads": {**empty, "cpl": 0.0, "previous_cpl": 0.0},
+                "buyers": {**empty, "cpa": 0.0, "previous_cpa": 0.0},
+                "revenue": {**empty},
+                "roas": {"value": 0.0, "previous": 0.0, "health": "red"}}
 
-    # Track leads attributable to ads via utm_content
-    ad_names = set(meta["ad_name"].dropna())
-    attributed_leads = leads[leads["utm_content"].isin(ad_names)]
-    attributed_count = len(attributed_leads)
+    end = pd.to_datetime(meta_df["reporting_starts"], errors="coerce").max()
+    curr_meta = _windowed(meta_df, "reporting_starts", end, comparison_days)
+    prev_meta = _windowed(meta_df, "reporting_starts",
+                          end - pd.Timedelta(days=comparison_days), comparison_days)
+    curr_pur = _windowed(purchases_df, "date", end, comparison_days)
+    prev_pur = _windowed(purchases_df, "date",
+                         end - pd.Timedelta(days=comparison_days), comparison_days)
 
-    # Match attributed leads to purchases
-    purchase_emails = set(purchases["norm_email"].dropna())
-    purchase_phones = set(purchases["norm_phone"].dropna())
-    attributed_converted = attributed_leads[
-        attributed_leads["norm_email"].isin(purchase_emails)
-        | attributed_leads["norm_phone"].isin(purchase_phones)
-    ]
-    attributed_buyers = len(attributed_converted)
+    spend = float(curr_meta["amount_spent"].sum())
+    prev_spend = float(prev_meta["amount_spent"].sum())
+    leads = int(curr_meta["results"].fillna(0).sum())
+    prev_leads = int(prev_meta["results"].fillna(0).sum())
+    buyers = len(curr_pur)
+    prev_buyers = len(prev_pur)
+    revenue = float(pd.to_numeric(curr_pur["amount"], errors="coerce").fillna(0).sum())
+    prev_revenue = float(pd.to_numeric(prev_pur["amount"], errors="coerce").fillna(0).sum())
 
-    # Revenue from attributed buyers
-    attributed_revenue = 0.0
-    purchase_by_phone: dict[str, float] = {}
-    purchase_by_email: dict[str, float] = {}
-    for _, row in purchases.iterrows():
-        amt = row["amount"] if pd.notna(row["amount"]) else 0.0
-        if pd.notna(row.get("norm_phone")):
-            purchase_by_phone[row["norm_phone"]] = amt
-        if pd.notna(row.get("norm_email")):
-            purchase_by_email[row["norm_email"]] = amt
+    cpl = round(spend / leads, 2) if leads else 0.0
+    prev_cpl = round(prev_spend / prev_leads, 2) if prev_leads else 0.0
+    cpa = round(spend / buyers, 2) if buyers else 0.0
+    prev_cpa = round(prev_spend / prev_buyers, 2) if prev_buyers else 0.0
+    roas = round(revenue / spend, 2) if spend else 0.0
+    prev_roas = round(prev_revenue / prev_spend, 2) if prev_spend else 0.0
 
-    seen = set()
-    for _, lead in attributed_converted.iterrows():
-        key = lead.get("norm_phone") or lead.get("norm_email")
-        if key in seen:
-            continue
-        seen.add(key)
-        if pd.notna(lead.get("norm_phone")) and lead["norm_phone"] in purchase_by_phone:
-            attributed_revenue += purchase_by_phone[lead["norm_phone"]]
-        elif pd.notna(lead.get("norm_email")) and lead["norm_email"] in purchase_by_email:
-            attributed_revenue += purchase_by_email[lead["norm_email"]]
-
-    attributed_roas = round(attributed_revenue / total_spend, 2) if total_spend else 0.0
-    course_fee = config.get("course_fee_full", 0)
-    breakeven_leads = int(total_spend / course_fee) + 1 if course_fee else 0
+    health = "green" if roas > 3 else ("yellow" if roas >= 2 else "red")
+    spend_dir = "up" if spend > prev_spend else ("down" if spend < prev_spend else "flat")
 
     return {
-        "total_spend": total_spend,
-        "total_revenue": total_revenue,
-        "roas": roas,
-        "attributed_leads": attributed_count,
-        "attributed_buyers": attributed_buyers,
-        "attributed_revenue": attributed_revenue,
-        "attributed_roas": attributed_roas,
-        "utm_tracking_pct": round(attributed_count / len(leads) * 100, 1) if len(leads) else 0.0,
-        "breakeven_sales": breakeven_leads,
-        "actual_sales": len(purchases),
+        "spend": {"value": spend, "previous": prev_spend,
+                  "change_pct": _pct_change(spend, prev_spend), "direction": spend_dir},
+        "leads": {"value": leads, "previous": prev_leads,
+                  "change_pct": _pct_change(leads, prev_leads),
+                  "cpl": cpl, "previous_cpl": prev_cpl},
+        "buyers": {"value": buyers, "previous": prev_buyers,
+                   "change_pct": _pct_change(buyers, prev_buyers),
+                   "cpa": cpa, "previous_cpa": prev_cpa},
+        "revenue": {"value": revenue, "previous": prev_revenue,
+                    "change_pct": _pct_change(revenue, prev_revenue)},
+        "roas": {"value": roas, "previous": prev_roas, "health": health},
     }
 
 
-def get_top_ads(meta: pd.DataFrame, n: int = 5, by: str = "results") -> pd.DataFrame:
-    """Top N ads by a given metric."""
-    active = meta[(meta["amount_spent"] > 0) & (meta["results"] > 0)].copy()
-    active["cpl"] = (active["amount_spent"] / active["results"]).round(2)
-    return active.nlargest(n, by)[["ad_name", "amount_spent", "results", "cpl"]].reset_index(drop=True)
+def calculate_daily_spend_trend(
+    meta_df: pd.DataFrame,
+    purchases_df: pd.DataFrame,
+    attribution_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Daily aggregates: spend/leads from meta, buyers/revenue from purchases."""
+    cols = ["date", "spend", "leads", "buyers", "revenue", "cpl", "cpa", "roas"]
+    if meta_df.empty:
+        return pd.DataFrame(columns=cols)
+
+    m = meta_df.copy()
+    m["date"] = pd.to_datetime(m["reporting_starts"], errors="coerce").dt.normalize()
+    daily_ad = m.groupby("date").agg(
+        spend=("amount_spent", "sum"),
+        leads=("results", "sum"),
+    ).reset_index()
+
+    p = purchases_df.copy()
+    if not p.empty:
+        p["date"] = pd.to_datetime(p["date"], errors="coerce").dt.normalize()
+        p["amount"] = pd.to_numeric(p["amount"], errors="coerce").fillna(0)
+        daily_pur = p.groupby("date").agg(
+            buyers=("amount", "count"),
+            revenue=("amount", "sum"),
+        ).reset_index()
+    else:
+        daily_pur = pd.DataFrame(columns=["date", "buyers", "revenue"])
+
+    df = daily_ad.merge(daily_pur, on="date", how="left").fillna({"buyers": 0, "revenue": 0})
+    df["leads"] = df["leads"].fillna(0).astype(int)
+    df["buyers"] = df["buyers"].astype(int)
+    df["cpl"] = (df["spend"] / df["leads"]).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+    df["cpa"] = (df["spend"] / df["buyers"]).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+    df["roas"] = (df["revenue"] / df["spend"]).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+    return df.sort_values("date").reset_index(drop=True)[cols]
+
+
+def _join_attribution(agg: pd.DataFrame, attribution_df: pd.DataFrame) -> pd.DataFrame:
+    """Add buyers/revenue/roas/cpa columns to a per-ad aggregated DataFrame."""
+    if agg.empty:
+        agg = agg.copy()
+        agg["buyers"] = pd.Series(dtype=int)
+        agg["revenue"] = pd.Series(dtype=float)
+        agg["roas"] = pd.Series(dtype=float)
+        agg["cpa"] = pd.Series(dtype=float)
+        return agg
+    if attribution_df is None or attribution_df.empty:
+        agg = agg.copy()
+        agg["buyers"] = 0
+        agg["revenue"] = 0.0
+    else:
+        agg = agg.merge(
+            attribution_df[["ad_name", "buyers", "revenue"]],
+            on="ad_name", how="left",
+        )
+        agg["buyers"] = agg["buyers"].fillna(0).astype(int)
+        agg["revenue"] = agg["revenue"].fillna(0.0)
+    agg["roas"] = (agg["revenue"] / agg["spend"]).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+    agg["cpa"] = agg.apply(
+        lambda r: round(r["spend"] / r["buyers"], 2) if r["buyers"] else 0.0, axis=1
+    )
+    return agg
+
+
+def identify_kill_ads(
+    meta_df: pd.DataFrame,
+    attribution_df: pd.DataFrame,
+    min_spend: float = 200,
+    max_roas: float = 1.5,
+    min_days_running: int = 7,
+) -> pd.DataFrame:
+    agg = _join_attribution(_aggregate_meta_by_ad(meta_df), attribution_df)
+    if agg.empty:
+        return pd.DataFrame(columns=["ad_name", "short_name", "spend", "leads",
+                                     "buyers", "revenue", "roas", "days_running",
+                                     "wasted_spend"])
+    out = agg[(agg["spend"] > min_spend)
+              & (agg["roas"] < max_roas)
+              & (agg["days_running"] >= min_days_running)].copy()
+    out["wasted_spend"] = (out["spend"] - out["revenue"]).round(2)
+    out["short_name"] = out["ad_name"].apply(shorten_ad_name)
+    cols = ["ad_name", "short_name", "spend", "leads", "buyers", "revenue",
+            "roas", "days_running", "wasted_spend"]
+    return out[cols].sort_values("wasted_spend", ascending=False).reset_index(drop=True)
+
+
+def identify_scale_ads(
+    meta_df: pd.DataFrame,
+    attribution_df: pd.DataFrame,
+    max_spend: float = 500,
+    min_roas: float = 3.0,
+    min_leads: int = 5,
+) -> pd.DataFrame:
+    agg = _join_attribution(_aggregate_meta_by_ad(meta_df), attribution_df)
+    if agg.empty:
+        return pd.DataFrame(columns=["ad_name", "short_name", "spend", "leads",
+                                     "buyers", "revenue", "roas", "projected_3x_revenue"])
+    out = agg[(agg["spend"] < max_spend)
+              & (agg["roas"] > min_roas)
+              & (agg["leads"] >= min_leads)].copy()
+    out["projected_3x_revenue"] = (out["revenue"] * 3).round(0)
+    out["short_name"] = out["ad_name"].apply(shorten_ad_name)
+    cols = ["ad_name", "short_name", "spend", "leads", "buyers", "revenue",
+            "roas", "projected_3x_revenue"]
+    return out[cols].sort_values("roas", ascending=False).reset_index(drop=True)
+
+
+def identify_test_ads(
+    meta_df: pd.DataFrame,
+    attribution_df: pd.DataFrame,
+    max_spend: float = 100,
+    min_ctr: float = 1.5,
+    max_days_running: int = 7,
+) -> pd.DataFrame:
+    agg = _aggregate_meta_by_ad(meta_df)
+    if agg.empty:
+        return pd.DataFrame(columns=["ad_name", "short_name", "spend", "leads",
+                                     "ctr", "cpl", "days_running"])
+    out = agg[(agg["spend"] < max_spend)
+              & (agg["ctr"] > min_ctr)
+              & (agg["days_running"] < max_days_running)
+              & (agg["days_running"] > 0)].copy()
+    out["short_name"] = out["ad_name"].apply(shorten_ad_name)
+    cols = ["ad_name", "short_name", "spend", "leads", "ctr", "cpl", "days_running"]
+    return out[cols].sort_values("ctr", ascending=False).reset_index(drop=True)
+
+
+def calculate_creative_type_performance(
+    meta_df: pd.DataFrame,
+    attribution_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, list]:
+    """Group ads by Video / Image / Other. Returns (summary_df, other_ad_names)."""
+    summary_cols = ["type", "ads", "spend", "leads", "buyers", "revenue",
+                    "cpl", "cpa", "roas", "ctr"]
+    agg = _join_attribution(_aggregate_meta_by_ad(meta_df), attribution_df)
+    if agg.empty:
+        return pd.DataFrame(columns=summary_cols), []
+
+    def _classify(name: str) -> str:
+        n = str(name).lower()
+        if "video" in n: return "Video"
+        if "image" in n: return "Image"
+        return "Other"
+
+    agg["type"] = agg["ad_name"].apply(_classify)
+    summary = agg.groupby("type").agg(
+        ads=("ad_name", "count"),
+        spend=("spend", "sum"),
+        leads=("leads", "sum"),
+        buyers=("buyers", "sum"),
+        revenue=("revenue", "sum"),
+        clicks=("clicks", "sum"),
+        impressions=("impressions", "sum"),
+    ).reset_index()
+    summary["cpl"] = (summary["spend"] / summary["leads"]).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+    summary["cpa"] = summary.apply(
+        lambda r: round(r["spend"] / r["buyers"], 2) if r["buyers"] else 0.0, axis=1
+    )
+    summary["roas"] = (summary["revenue"] / summary["spend"]).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+    summary["ctr"] = (summary["clicks"] / summary["impressions"] * 100).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+    other_ads = agg.loc[agg["type"] == "Other", "ad_name"].tolist()
+    return summary[summary_cols], other_ads
+
+
+def calculate_campaign_performance(
+    meta_df: pd.DataFrame,
+    attribution_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Per-campaign rollup with health badges."""
+    cols = ["campaign_name", "active_ads", "spend", "leads", "buyers",
+            "revenue", "cpl", "cpa", "roas", "health"]
+    agg = _join_attribution(_aggregate_meta_by_ad(meta_df), attribution_df)
+    if agg.empty:
+        return pd.DataFrame(columns=cols)
+
+    grouped = agg.groupby("campaign_name").agg(
+        active_ads=("ad_name", "count"),
+        spend=("spend", "sum"),
+        leads=("leads", "sum"),
+        buyers=("buyers", "sum"),
+        revenue=("revenue", "sum"),
+    ).reset_index()
+    grouped["cpl"] = (grouped["spend"] / grouped["leads"]).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+    grouped["cpa"] = grouped.apply(
+        lambda r: round(r["spend"] / r["buyers"], 2) if r["buyers"] else 0.0, axis=1
+    )
+    grouped["roas"] = (grouped["revenue"] / grouped["spend"]).replace(
+        [float("inf"), -float("inf")], 0
+    ).fillna(0).round(2)
+
+    def _health(row) -> str:
+        if row["spend"] < 100:
+            return "yellow"
+        if row["roas"] > 3:
+            return "green"
+        if row["roas"] < 1.5:
+            return "red"
+        return "yellow"
+    grouped["health"] = grouped.apply(_health, axis=1)
+    return grouped.sort_values("spend", ascending=False).reset_index(drop=True)[cols]
+
+
+def calculate_creative_fatigue(
+    meta_df: pd.DataFrame,
+    attribution_df: pd.DataFrame,
+    lookback_days: int = 14,
+) -> pd.DataFrame:
+    """Recent 7-day CPL vs previous 7-day CPL per ad."""
+    cols = ["ad_name", "short_name", "recent_cpl", "previous_cpl",
+            "change_pct", "frequency", "status"]
+    if meta_df.empty:
+        return pd.DataFrame(columns=cols)
+
+    m = meta_df.copy()
+    m["date"] = pd.to_datetime(m["reporting_starts"], errors="coerce")
+    end = m["date"].max()
+    if pd.isna(end):
+        return pd.DataFrame(columns=cols)
+    cutoff = end - pd.Timedelta(days=lookback_days - 1)
+    mid = end - pd.Timedelta(days=6)
+    m = m[m["date"] >= cutoff]
+
+    rows = []
+    for ad_name, g in m.groupby("ad_name"):
+        days_present = g["date"].dt.normalize().nunique()
+        if days_present < lookback_days - 1:
+            continue
+        recent = g[g["date"] >= mid]
+        prev = g[g["date"] < mid]
+        recent_spend = float(recent["amount_spent"].fillna(0).sum())
+        recent_leads = float(recent["results"].fillna(0).sum())
+        prev_spend = float(prev["amount_spent"].fillna(0).sum())
+        prev_leads = float(prev["results"].fillna(0).sum())
+        if recent_leads == 0 or prev_leads == 0:
+            continue
+        recent_cpl = round(recent_spend / recent_leads, 2)
+        prev_cpl = round(prev_spend / prev_leads, 2)
+        change = _pct_change(recent_cpl, prev_cpl)
+        impressions = float(g["impressions"].fillna(0).sum())
+        reach = float(g["reach"].fillna(0).max())
+        freq = round(impressions / reach, 2) if reach else 0.0
+        if change > 25:
+            status = "fatiguing"
+        elif freq > 3.5:
+            status = "saturated"
+        elif change < -25:
+            status = "improving"
+        else:
+            status = "fresh"
+        rows.append({
+            "ad_name": ad_name, "short_name": shorten_ad_name(ad_name),
+            "recent_cpl": recent_cpl, "previous_cpl": prev_cpl,
+            "change_pct": change, "frequency": freq, "status": status,
+        })
+
+    df = pd.DataFrame(rows, columns=cols)
+    if df.empty:
+        return df
+    priority = {"fatiguing": 0, "saturated": 1, "fresh": 2, "improving": 3}
+    df["_p"] = df["status"].map(priority)
+    return df.sort_values(["_p", "change_pct"], ascending=[True, False]) \
+             .drop(columns="_p").reset_index(drop=True)
+
+
+def get_top_ads_with_buyers(
+    meta_df: pd.DataFrame,
+    attribution_df: pd.DataFrame,
+    top_n: int = 20,
+) -> pd.DataFrame:
+    """Detailed top-ads table sorted by ROAS desc, then zero-ROAS ads by spend."""
+    cols = ["ad_name", "short_name", "spend", "leads", "buyers", "revenue",
+            "cpl", "cpa", "roas", "clicks", "ctr", "frequency",
+            "days_running", "quality_ranking"]
+    agg = _join_attribution(_aggregate_meta_by_ad(meta_df), attribution_df)
+    if agg.empty:
+        return pd.DataFrame(columns=cols)
+    agg["short_name"] = agg["ad_name"].apply(shorten_ad_name)
+    has_roas = agg[agg["roas"] > 0].sort_values("roas", ascending=False)
+    no_roas = agg[agg["roas"] == 0].sort_values("spend", ascending=False)
+    return pd.concat([has_roas, no_roas])[cols].head(top_n).reset_index(drop=True)
+
+
+def calculate_break_even_analysis(
+    meta_df: pd.DataFrame,
+    purchases_df: pd.DataFrame,
+    attribution_df: pd.DataFrame,
+    leads_df: pd.DataFrame,
+    course_fee: float,
+) -> dict:
+    import math
+    total_spend = float(meta_df["amount_spent"].sum()) if not meta_df.empty else 0.0
+    if attribution_df is not None and not attribution_df.empty:
+        attributed_revenue = float(attribution_df["revenue"].sum())
+        attributed_buyers = int(attribution_df["buyers"].sum())
+    else:
+        attributed_revenue, attributed_buyers = 0.0, 0
+    break_even = math.ceil(total_spend / course_fee) if course_fee else 0
+    actual_sales = len(purchases_df)
+    surplus = actual_sales - break_even
+
+    ad_names = set(meta_df["ad_name"].dropna().astype(str).str.strip().str.lower()) \
+        if not meta_df.empty else set()
+    if not leads_df.empty and "utm_content" in leads_df.columns:
+        utm_norm = leads_df["utm_content"].astype(str).str.strip().str.lower()
+        utm_tracked = int(utm_norm.isin(ad_names).sum())
+    else:
+        utm_tracked = 0
+    utm_pct = round(utm_tracked / len(leads_df) * 100, 1) if len(leads_df) else 0.0
+
+    health = "green" if surplus > 20 else ("yellow" if surplus >= 0 else "red")
+    return {
+        "total_spend": total_spend,
+        "attributed_revenue": attributed_revenue,
+        "attributed_buyers": attributed_buyers,
+        "break_even_sales_needed": break_even,
+        "actual_sales": actual_sales,
+        "surplus": surplus,
+        "utm_tracked_leads": utm_tracked,
+        "utm_coverage_pct": utm_pct,
+        "health": health,
+    }
 
 
 # ---------------------------------------------------------------------------

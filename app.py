@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-from sections import ad_spend, ai_chat, ebook_survey, failed_leads, lead_pipeline, overview, sales_revenue, webinar_performance
+from sections import ad_spend_roi, ai_chat, ebook_survey, failed_leads, lead_pipeline, overview, sales_revenue, webinar_performance
 from utils.data_loader import load_all
 from utils.styles import inject_css
 
@@ -116,6 +116,6 @@ with tab5:
 with tab6:
     ebook_survey.render(data)
 with tab7:
-    ad_spend.render(data)
+    ad_spend_roi.render(data)
 with tab8:
     ai_chat.render(data)
