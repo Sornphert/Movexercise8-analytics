@@ -10,7 +10,8 @@ from utils.metrics import (
     calculate_ad_spend_snapshot, calculate_break_even_analysis,
     calculate_campaign_performance, calculate_creative_fatigue,
     calculate_creative_type_performance, calculate_daily_spend_trend,
-    get_top_ads_with_buyers, identify_kill_ads, identify_scale_ads, identify_test_ads,
+    calculate_kill_impact, get_top_ads_with_buyers,
+    identify_kill_ads, identify_scale_ads, identify_test_ads,
 )
 from utils.styles import COLORS, alert, decision_panel, metric_card, section_header
 
@@ -46,7 +47,9 @@ _TOP_CONFIG = {"short_name": _T("Ad", width="medium"),
                "revenue": _N("Revenue", "RM %.0f"), "cpl": _N("CPL", "RM %.2f"),
                "cpa": _N("CPA", "RM %.2f"), "roas": _N("ROAS", "%.2fx"),
                "clicks": _N("Clicks"), "ctr": _N("CTR %", "%.2f"),
-               "frequency": _N("Freq", "%.2fx"), "days_running": _N("Days"),
+               "frequency": _N("Freq", "%.2fx"),
+               "frequency_status": _T("Status", width="small"),
+               "days_running": _N("Days"),
                "quality_ranking": _T("Quality")}
 
 
@@ -60,7 +63,7 @@ def render(data: dict) -> None:
     snap = calculate_ad_spend_snapshot(meta, purchases, attribution)
     _render_spend_snapshot(snap)
     _render_spend_trend(meta, purchases, attribution, snap)
-    _render_decision_panels(meta, attribution)
+    _render_decision_panels(meta, attribution, purchases)
     _render_creative_type(meta, attribution)
     _render_campaign_performance(meta, attribution)
     _render_creative_fatigue(meta, attribution)
@@ -70,21 +73,37 @@ def render(data: dict) -> None:
     _render_ai(snap, meta, attribution)
 
 
-def _delta(pct: float) -> str:
-    if pct == 0: return "→ flat vs prev 7d"
-    return f"{'↑' if pct > 0 else '↓'} {abs(pct):.0f}% vs prev 7d"
+def _format_delta(change_pct, previous_value, time_label: str = "prev 7d") -> str:
+    if change_pct is None:
+        if not previous_value:
+            return f"new this week (no prior {time_label})"
+        return ""
+    arrow = "↑" if change_pct > 0 else ("↓" if change_pct < 0 else "→")
+    if change_pct == 0:
+        return f"→ flat vs {time_label}"
+    return f"{arrow} {abs(change_pct):.0f}% vs {time_label}"
+
+
+def _join_sub(prefix: str, delta: str) -> str:
+    return f"{prefix} · {delta}" if delta else prefix
 
 
 def _render_spend_snapshot(s: dict) -> None:
     st.markdown(section_header("Spend Snapshot"), unsafe_allow_html=True)
-    buyer_v = "danger" if s["buyers"]["value"] == 0 or s["buyers"]["change_pct"] < 0 else ""
+    buyer_change = s["buyers"]["change_pct"]
+    buyer_v = "danger" if s["buyers"]["value"] == 0 or (
+        buyer_change is not None and buyer_change < 0) else ""
     cards = [
-        ("Total Spend (7d)", f"RM {s['spend']['value']:,.0f}", _delta(s["spend"]["change_pct"]), ""),
+        ("Total Spend (7d)", f"RM {s['spend']['value']:,.0f}",
+         _format_delta(s["spend"]["change_pct"], s["spend"]["previous"]), ""),
         ("Leads (7d)", f"{s['leads']['value']:,}",
-         f"CPL: RM {s['leads']['cpl']:.2f} · {_delta(s['leads']['change_pct'])}", ""),
+         _join_sub(f"CPL: RM {s['leads']['cpl']:.2f}",
+                   _format_delta(s["leads"]["change_pct"], s["leads"]["previous"])), ""),
         ("Buyers (7d)", f"{s['buyers']['value']:,}",
-         f"CPA: RM {s['buyers']['cpa']:.2f} · {_delta(s['buyers']['change_pct'])}", buyer_v),
-        ("Revenue (7d)", f"RM {s['revenue']['value']:,.0f}", _delta(s["revenue"]["change_pct"]), ""),
+         _join_sub(f"CPA: RM {s['buyers']['cpa']:.2f}",
+                   _format_delta(s["buyers"]["change_pct"], s["buyers"]["previous"])), buyer_v),
+        ("Revenue (7d)", f"RM {s['revenue']['value']:,.0f}",
+         _format_delta(s["revenue"]["change_pct"], s["revenue"]["previous"]), ""),
         ("ROAS (7d)", f"{s['roas']['value']:.2f}x", f"prev: {s['roas']['previous']:.2f}x",
          _ROAS_VARIANT[s["roas"]["health"]]),
     ]
@@ -104,7 +123,8 @@ def _render_spend_trend(meta, purchases, attribution, s) -> None:
                              line=dict(color=COLORS["accent"], width=2.5), yaxis="y2"))
     fig.add_trace(go.Scatter(x=trend["date"], y=trend["buyers"], name="Buyers", mode="lines",
                              line=dict(color=COLORS["danger"], width=2, dash="dash"), yaxis="y2"))
-    fig.update_layout(yaxis=dict(title="Spend (RM)"),
+    fig.update_layout(title_text="",
+                      yaxis=dict(title="Spend (RM)"),
                       yaxis2=dict(title="Leads / Buyers", overlaying="y", side="right"),
                       legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0))
     st.plotly_chart(apply_standard_layout(fig, height=380), use_container_width=True)
@@ -122,9 +142,10 @@ def _render_spend_trend(meta, purchases, attribution, s) -> None:
     st.markdown(alert(msg, var), unsafe_allow_html=True)
 
 
-def _render_decision_panels(meta, attribution) -> None:
+def _render_decision_panels(meta, attribution, purchases) -> None:
     st.markdown(section_header("What to Do This Week"), unsafe_allow_html=True)
-    kill = identify_kill_ads(meta, attribution).head(5)
+    kill_full = identify_kill_ads(meta, attribution)
+    kill = kill_full.head(5)
     scale = identify_scale_ads(meta, attribution).head(5)
     test = identify_test_ads(meta, attribution).head(5)
     kill_items = [f"<b>{r.short_name}</b> — RM {r.spend:,.0f} spent, {int(r.buyers)} buyers, "
@@ -148,6 +169,20 @@ def _render_decision_panels(meta, attribution) -> None:
     for col, (title, items, foot, v) in zip(st.columns(3), panels):
         with col: st.markdown(decision_panel(title, items, foot, v), unsafe_allow_html=True)
 
+    if not kill_full.empty:
+        impact = calculate_kill_impact(meta, attribution, kill_full, purchases)
+        if impact["weekly_savings"] > 0:
+            base = (
+                f"💡 If you pause these {len(kill_full)} ad(s): "
+                f"weekly spend drops from RM {impact['current_spend']:,.0f} to "
+                f"RM {impact['projected_spend']:,.0f} "
+                f"(save RM {impact['weekly_savings']:,.0f}/week)"
+            )
+            if impact["roas_lift"] > 0.01:
+                base += (f", and ROAS could lift from {impact['current_roas']:.2f}x "
+                         f"to {impact['projected_roas']:.2f}x")
+            st.markdown(alert(base + ".", "info"), unsafe_allow_html=True)
+
 
 def _render_creative_type(meta, attribution) -> None:
     st.markdown(section_header("Creative Type Comparison"), unsafe_allow_html=True)
@@ -160,7 +195,7 @@ def _render_creative_type(meta, attribution) -> None:
         go.Bar(x=summary["type"], y=summary["revenue"], name="Revenue (RM)",
                marker_color=COLORS["accent"]),
     ])
-    fig.update_layout(barmode="group", yaxis=dict(title="RM"))
+    fig.update_layout(title_text="", barmode="group", yaxis=dict(title="RM"))
     st.plotly_chart(apply_standard_layout(fig, height=320), use_container_width=True)
     st.dataframe(summary, use_container_width=True, hide_index=True, column_config=_CT_CONFIG)
     if others:
@@ -206,6 +241,14 @@ def _render_top_ads_table(meta, attribution) -> None:
     df = get_top_ads_with_buyers(meta, attribution, top_n=20)
     if df.empty:
         st.info("No ads to display."); return
+    high_freq = df[df["frequency"] >= 10]
+    if not high_freq.empty:
+        names = high_freq["short_name"].tolist()
+        sample = ", ".join(names[:3]) + ("..." if len(names) > 3 else "")
+        st.markdown(alert(
+            f"🔴 {len(names)} ad(s) have frequency ≥ 10 — audience seeing these "
+            f"too many times: {sample}. Refresh creative or pause to avoid ad fatigue.",
+            "danger"), unsafe_allow_html=True)
     st.dataframe(df.drop(columns=["ad_name"]), use_container_width=True,
                  hide_index=True, column_config=_TOP_CONFIG)
 
@@ -217,15 +260,27 @@ def _render_quality_rankings(meta) -> None:
                 ("engagement_ranking", "Engagement Ranking"),
                 ("conversion_ranking", "Conversion Ranking")]
     distributions = {}
-    for (col, title), slot in zip(rankings, st.columns(3)):
+    for col, _ in rankings:
         f = active[~active[col].isin(["-", "", None]) & active[col].notna()]
         counts = f[col].value_counts().reset_index()
         counts.columns = ["ranking", "count"]
         distributions[col] = counts
+
+    for (col, title), slot in zip(rankings, st.columns(3)):
         with slot:
-            if counts.empty: st.caption(f"{title}: no data")
-            else: st.plotly_chart(pie_chart(counts, "count", "ranking", title),
-                                  use_container_width=True)
+            counts = distributions[col]
+            if col == "conversion_ranking" and len(counts) <= 1:
+                st.markdown(f"**{title}**")
+                st.info(
+                    "📊 Insufficient data for ranking analysis. Meta needs ~50 "
+                    "conversions per ad to grade conversion performance reliably. "
+                    "As more sales accumulate, this metric becomes diagnostic."
+                )
+            elif counts.empty:
+                st.caption(f"{title}: no data")
+            else:
+                st.plotly_chart(pie_chart(counts, "count", "ranking", title),
+                                use_container_width=True)
 
     qd = distributions.get("quality_ranking")
     if qd is not None and not qd.empty:
@@ -238,11 +293,6 @@ def _render_quality_rankings(meta) -> None:
                 f"<b>{below/total*100:.0f}%</b> of your ads are in Meta's bottom 35% quality bracket. "
                 f"These ads cost more and reach less. Action: refresh creative or rewrite copy. "
                 f"Sample: {sample}.", "danger"), unsafe_allow_html=True)
-    cd = distributions.get("conversion_ranking")
-    if cd is not None and len(cd) == 1 and cd.iloc[0]["ranking"].lower().startswith("above"):
-        st.markdown(alert(
-            "Conversion ranking shows 100% above average — likely insufficient conversion data. "
-            "Meta needs ~50 conversions per ad to grade reliably.", "warning"), unsafe_allow_html=True)
 
 
 def _render_break_even_analysis(meta, purchases, attribution, leads, config) -> None:
@@ -279,8 +329,10 @@ def _render_ai(snap, meta, attribution) -> None:
                          for r in kill.itertuples()) or "none"
     scale_str = "; ".join(f"{r.short_name} ({r.roas:.1f}x ROAS)"
                           for r in scale.itertuples()) or "none"
+    spend_change = snap["spend"]["change_pct"]
+    spend_str = "n/a" if spend_change is None else f"{spend_change:+.0f}%"
     context = (f"Last 7d: RM {snap['spend']['value']:,.0f} spent "
-               f"({snap['spend']['change_pct']:+.0f}% vs prev), "
+               f"({spend_str} vs prev), "
                f"{snap['leads']['value']} leads (CPL RM {snap['leads']['cpl']:.2f}), "
                f"{snap['buyers']['value']} buyers (CPA RM {snap['buyers']['cpa']:.2f}), "
                f"ROAS {snap['roas']['value']:.2f}x ({snap['roas']['health']}).\n"

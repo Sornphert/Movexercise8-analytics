@@ -786,8 +786,11 @@ def calculate_cohort_summary(
 # Ad Spend & ROI
 # ---------------------------------------------------------------------------
 
-def shorten_ad_name(full_name) -> str:
-    """'291025 MY Daryl Movexercise8 LP-Ver1 Video 003' → 'Video 003'."""
+def shorten_ad_name(full_name, campaign_name: str | None = None) -> str:
+    """'291025 MY Daryl Movexercise8 LP-Ver1 Video 003' → 'Video 003'.
+
+    campaign_name is accepted for API compatibility; actual disambiguation across
+    a DataFrame is handled by add_disambiguated_name_column."""
     if not isinstance(full_name, str):
         return str(full_name)
     s = full_name.strip()
@@ -796,6 +799,54 @@ def shorten_ad_name(full_name) -> str:
     s = re.sub(r"^(Movexercise8|M8)\s+", "", s, flags=re.I)
     s = re.sub(r"^LP-Ver[12]\s+", "", s, flags=re.I)
     return s if s else full_name
+
+
+def _campaign_suffix(campaign_name) -> str:
+    """Pick a short distinguishing token from a campaign name.
+
+    '260326 MY Daryl M8 LEADS (Retargeting)' → 'Retargeting'
+    '291025 MY Daryl Movexercise8 LEADS' → 'LEADS'
+    """
+    if not isinstance(campaign_name, str) or not campaign_name.strip():
+        return ""
+    s = campaign_name.strip()
+    paren = re.search(r"\(([^)]+)\)\s*$", s)
+    if paren:
+        token = paren.group(1).strip()
+        if token:
+            return token
+    s_no_paren = re.sub(r"\s*\([^)]*\)\s*$", "", s).strip()
+    parts = s_no_paren.split()
+    return parts[-1] if parts else ""
+
+
+def add_disambiguated_name_column(
+    df: pd.DataFrame,
+    name_col: str = "ad_name",
+    campaign_col: str = "campaign_name",
+    output_col: str = "short_name",
+) -> pd.DataFrame:
+    """Compute short names; for collisions, append a campaign-derived suffix.
+
+    Non-colliding rows keep their plain shortened name. Colliding rows become
+    'Short Name (Suffix)' where suffix comes from the row's campaign.
+    """
+    out = df.copy()
+    if out.empty or name_col not in out.columns:
+        out[output_col] = pd.Series(dtype=str)
+        return out
+    base = out[name_col].apply(shorten_ad_name)
+    counts = base.value_counts()
+    collisions = set(counts[counts > 1].index)
+    if not collisions or campaign_col not in out.columns:
+        out[output_col] = base
+        return out
+    suffixes = out[campaign_col].apply(_campaign_suffix)
+    out[output_col] = [
+        f"{b} ({s})" if (b in collisions and s) else b
+        for b, s in zip(base, suffixes)
+    ]
+    return out
 
 
 def _aggregate_meta_by_ad(meta_df: pd.DataFrame) -> pd.DataFrame:
@@ -846,12 +897,6 @@ def _windowed(df: pd.DataFrame, date_col: str, end: pd.Timestamp, days: int) -> 
     start = end - pd.Timedelta(days=days - 1)
     s = pd.to_datetime(df[date_col], errors="coerce")
     return df[(s >= start) & (s <= end)]
-
-
-def _pct_change(curr: float, prev: float) -> float:
-    if prev == 0:
-        return 0.0 if curr == 0 else 100.0
-    return round((curr - prev) / prev * 100, 1)
 
 
 def calculate_ad_spend_snapshot(
@@ -999,10 +1044,64 @@ def identify_kill_ads(
               & (agg["roas"] < max_roas)
               & (agg["days_running"] >= min_days_running)].copy()
     out["wasted_spend"] = (out["spend"] - out["revenue"]).round(2)
-    out["short_name"] = out["ad_name"].apply(shorten_ad_name)
+    out = add_disambiguated_name_column(out)
     cols = ["ad_name", "short_name", "spend", "leads", "buyers", "revenue",
             "roas", "days_running", "wasted_spend"]
     return out[cols].sort_values("wasted_spend", ascending=False).reset_index(drop=True)
+
+
+def calculate_kill_impact(
+    meta_df: pd.DataFrame,
+    attribution_df: pd.DataFrame,
+    kill_df: pd.DataFrame,
+    purchases_df: pd.DataFrame | None = None,
+    comparison_days: int = 7,
+) -> dict:
+    """Project last-7d metrics if every ad in kill_df is paused.
+
+    Revenue is held constant (KILL ads have ROAS<1.5 with minimal attributable
+    buyers). Daily waste per kill ad = spend / days_running; weekly savings
+    = sum × 7. Uses purchases_df for 7d revenue (matches snapshot ROAS); falls
+    back to attribution totals when purchases_df is absent.
+    """
+    empty = {"current_spend": 0.0, "projected_spend": 0.0, "weekly_savings": 0.0,
+             "current_roas": 0.0, "projected_roas": 0.0, "roas_lift": 0.0}
+    if meta_df.empty or kill_df is None or kill_df.empty:
+        return empty
+
+    end = pd.to_datetime(meta_df["reporting_starts"], errors="coerce").max()
+    if pd.isna(end):
+        return empty
+    curr_meta = _windowed(meta_df, "reporting_starts", end, comparison_days)
+    current_spend = float(curr_meta["amount_spent"].fillna(0).sum())
+    if purchases_df is not None and not purchases_df.empty:
+        curr_pur = _windowed(purchases_df, "date", end, comparison_days)
+        current_revenue = float(pd.to_numeric(curr_pur["amount"],
+                                              errors="coerce").fillna(0).sum())
+    elif attribution_df is not None and not attribution_df.empty:
+        current_revenue = float(pd.to_numeric(attribution_df["revenue"],
+                                              errors="coerce").fillna(0).sum())
+    else:
+        current_revenue = 0.0
+
+    days = pd.to_numeric(kill_df["days_running"], errors="coerce").fillna(0)
+    spend = pd.to_numeric(kill_df["spend"], errors="coerce").fillna(0)
+    daily_waste = float((spend / days.where(days > 0)).fillna(0).sum())
+    # Cap weekly savings at current spend — an ad that stopped running can't
+    # still be "wasting" beyond what we're actually spending now.
+    weekly_savings = round(min(daily_waste * 7, current_spend), 2)
+    projected_spend = max(0.0, round(current_spend - weekly_savings, 2))
+
+    current_roas = round(current_revenue / current_spend, 2) if current_spend else 0.0
+    projected_roas = round(current_revenue / projected_spend, 2) if projected_spend else current_roas
+    return {
+        "current_spend": round(current_spend, 2),
+        "projected_spend": projected_spend,
+        "weekly_savings": weekly_savings,
+        "current_roas": current_roas,
+        "projected_roas": projected_roas,
+        "roas_lift": round(projected_roas - current_roas, 2),
+    }
 
 
 def identify_scale_ads(
@@ -1020,7 +1119,7 @@ def identify_scale_ads(
               & (agg["roas"] > min_roas)
               & (agg["leads"] >= min_leads)].copy()
     out["projected_3x_revenue"] = (out["revenue"] * 3).round(0)
-    out["short_name"] = out["ad_name"].apply(shorten_ad_name)
+    out = add_disambiguated_name_column(out)
     cols = ["ad_name", "short_name", "spend", "leads", "buyers", "revenue",
             "roas", "projected_3x_revenue"]
     return out[cols].sort_values("roas", ascending=False).reset_index(drop=True)
@@ -1041,7 +1140,7 @@ def identify_test_ads(
               & (agg["ctr"] > min_ctr)
               & (agg["days_running"] < max_days_running)
               & (agg["days_running"] > 0)].copy()
-    out["short_name"] = out["ad_name"].apply(shorten_ad_name)
+    out = add_disambiguated_name_column(out)
     cols = ["ad_name", "short_name", "spend", "leads", "ctr", "cpl", "days_running"]
     return out[cols].sort_values("ctr", ascending=False).reset_index(drop=True)
 
@@ -1165,6 +1264,8 @@ def calculate_creative_fatigue(
         recent_cpl = round(recent_spend / recent_leads, 2)
         prev_cpl = round(prev_spend / prev_leads, 2)
         change = _pct_change(recent_cpl, prev_cpl)
+        if change is None:
+            continue
         impressions = float(g["impressions"].fillna(0).sum())
         reach = float(g["reach"].fillna(0).max())
         freq = round(impressions / reach, 2) if reach else 0.0
@@ -1177,18 +1278,38 @@ def calculate_creative_fatigue(
         else:
             status = "fresh"
         rows.append({
-            "ad_name": ad_name, "short_name": shorten_ad_name(ad_name),
+            "ad_name": ad_name,
             "recent_cpl": recent_cpl, "previous_cpl": prev_cpl,
             "change_pct": change, "frequency": freq, "status": status,
         })
 
-    df = pd.DataFrame(rows, columns=cols)
+    df = pd.DataFrame(rows, columns=["ad_name", "recent_cpl", "previous_cpl",
+                                      "change_pct", "frequency", "status"])
     if df.empty:
-        return df
+        return pd.DataFrame(columns=cols)
+    campaign_map = (
+        meta_df.dropna(subset=["ad_name"])
+        .groupby("ad_name")["campaign_name"].first().reset_index()
+    )
+    df = df.merge(campaign_map, on="ad_name", how="left")
+    df = add_disambiguated_name_column(df)
+    df = df[cols]
     priority = {"fatiguing": 0, "saturated": 1, "fresh": 2, "improving": 3}
     df["_p"] = df["status"].map(priority)
     return df.sort_values(["_p", "change_pct"], ascending=[True, False]) \
              .drop(columns="_p").reset_index(drop=True)
+
+
+def _frequency_status(freq) -> str:
+    try:
+        f = float(freq)
+    except (TypeError, ValueError):
+        return ""
+    if f >= 10:
+        return "🔴 Critical"
+    if f >= 5:
+        return "🟡 High"
+    return ""
 
 
 def get_top_ads_with_buyers(
@@ -1199,11 +1320,12 @@ def get_top_ads_with_buyers(
     """Detailed top-ads table sorted by ROAS desc, then zero-ROAS ads by spend."""
     cols = ["ad_name", "short_name", "spend", "leads", "buyers", "revenue",
             "cpl", "cpa", "roas", "clicks", "ctr", "frequency",
-            "days_running", "quality_ranking"]
+            "frequency_status", "days_running", "quality_ranking"]
     agg = _join_attribution(_aggregate_meta_by_ad(meta_df), attribution_df)
     if agg.empty:
         return pd.DataFrame(columns=cols)
-    agg["short_name"] = agg["ad_name"].apply(shorten_ad_name)
+    agg = add_disambiguated_name_column(agg)
+    agg["frequency_status"] = agg["frequency"].apply(_frequency_status)
     has_roas = agg[agg["roas"] > 0].sort_values("roas", ascending=False)
     no_roas = agg[agg["roas"] == 0].sort_values("spend", ascending=False)
     return pd.concat([has_roas, no_roas])[cols].head(top_n).reset_index(drop=True)
@@ -1515,7 +1637,9 @@ def match_objections_for_event(
     return objections_df[raw.isin(candidates)]
 
 
-def _direction(change_pct: float) -> str:
+def _direction(change_pct: float | None) -> str:
+    if change_pct is None:
+        return "flat"
     if change_pct > 0:
         return "up"
     if change_pct < 0:
@@ -1523,10 +1647,11 @@ def _direction(change_pct: float) -> str:
     return "flat"
 
 
-def _pct_change(current: float, previous: float) -> float:
-    if previous == 0:
-        return 100.0 if current > 0 else 0.0
-    return round((current - previous) / previous * 100, 1)
+def _pct_change(curr: float, prev: float) -> float | None:
+    """Returns percent change, or None when prev was 0 (undefined change)."""
+    if prev == 0:
+        return None
+    return round((curr - prev) / prev * 100, 1)
 
 
 def calculate_monthly_summary(
@@ -1606,7 +1731,7 @@ def calculate_month_over_month(leads: pd.DataFrame, purchases: pd.DataFrame) -> 
         out[k] = {
             "current": cur,
             "previous": prev,
-            "change_pct": change,
+            "change_pct": 0.0 if change is None else change,
             "direction": _direction(change),
         }
     return out
