@@ -6,6 +6,10 @@ Usage:
     python scripts/fetch_meta_ads.py --days 90                # custom lookback
     python scripts/fetch_meta_ads.py --from 2025-11-01 --to 2026-04-14
     python scripts/fetch_meta_ads.py --dry-run                # preview only
+    python scripts/fetch_meta_ads.py --days 14 --append --creatives  # weekly cron
+
+Run weekly: `python scripts/fetch_meta_ads.py --days 14 --append --creatives`
+This refreshes both performance data AND creative images for currently-active ads.
 """
 from __future__ import annotations
 
@@ -14,7 +18,7 @@ import json
 import os
 import sys
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -23,13 +27,22 @@ from dotenv import load_dotenv
 
 API_VERSION = "v25.0"
 GRAPH_BASE = f"https://graph.facebook.com/{API_VERSION}"
-OUTPUT_PATH = Path(__file__).resolve().parent.parent / "data" / "meta_ads.csv"
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+OUTPUT_PATH = DATA_DIR / "meta_ads.csv"
+CREATIVES_CSV_PATH = DATA_DIR / "meta_ad_creatives.csv"
+CREATIVES_DIR = DATA_DIR / "ad_creatives"
+CREATIVES_STALE_SECONDS = 7 * 86400
 
 MAX_RETRIES = 3
 BACKOFF_BASE = 1  # seconds
 
 BACKFILL_START_DATE = "2025-10-01"
 DEDUP_KEYS = ["reporting_starts", "ad_name"]
+
+CREATIVES_COLUMNS = [
+    "ad_id", "ad_name", "effective_status", "object_type",
+    "image_url", "thumbnail_url", "local_image_path", "last_fetched",
+]
 
 INSIGHTS_FIELDS = ",".join([
     "campaign_name",
@@ -84,6 +97,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dry-run", action="store_true",
         help="Fetch and preview without writing the CSV",
+    )
+    parser.add_argument(
+        "--creatives", action="store_true",
+        help="Also fetch creative images for currently-active ads "
+             "(writes data/meta_ad_creatives.csv and data/ad_creatives/*.jpg)",
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
@@ -265,6 +283,138 @@ def build_dataframe(rows: list[dict]) -> pd.DataFrame:
     return df
 
 
+def _should_redownload(path: Path) -> bool:
+    """True if the cached image is missing or older than CREATIVES_STALE_SECONDS."""
+    if not path.exists():
+        return True
+    return (time.time() - path.stat().st_mtime) > CREATIVES_STALE_SECONDS
+
+
+def _download_image(url: str, dest: Path) -> bool:
+    """Download a single image with the same retry envelope as http_get.
+    Returns True on success, False on terminal failure."""
+    for attempt in range(MAX_RETRIES):
+        try:
+            resp = requests.get(url, timeout=60, stream=True)
+        except requests.RequestException as e:
+            wait = BACKOFF_BASE * (2 ** attempt)
+            print(f"  Network error downloading image ({e}); retrying in {wait}s...")
+            time.sleep(wait)
+            continue
+
+        if resp.status_code == 200:
+            tmp = dest.with_suffix(dest.suffix + ".tmp")
+            with open(tmp, "wb") as f:
+                for chunk in resp.iter_content(chunk_size=64 * 1024):
+                    if chunk:
+                        f.write(chunk)
+            tmp.replace(dest)
+            return True
+
+        if resp.status_code == 429:
+            retry_after = int(resp.headers.get("Retry-After", 5))
+            print(f"  Rate limited downloading image, waiting {retry_after}s...")
+            time.sleep(retry_after)
+            continue
+
+        wait = BACKOFF_BASE * (2 ** attempt)
+        print(f"  HTTP {resp.status_code} downloading image; retrying in {wait}s...")
+        time.sleep(wait)
+
+    return False
+
+
+def fetch_active_ad_creatives(
+    ad_account_id: str,
+    access_token: str,
+    output_dir: Path,
+    csv_path: Path,
+) -> dict:
+    """Pull active ads + creative images. Returns {'active': N, 'cached': M, 'failed': K}.
+
+    Filters to effective_status == "ACTIVE" server-side via the API param,
+    then guards client-side. Downloads image_url (or thumbnail_url for videos)
+    into output_dir/{ad_id}.jpg, skipping files less than 7 days old.
+    Writes csv_path with one row per active ad.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    url = f"{GRAPH_BASE}/{ad_account_id}/ads"
+    params = {
+        "access_token": access_token,
+        "fields": "id,name,effective_status,creative{id,image_url,thumbnail_url,object_type}",
+        "effective_status": json.dumps(["ACTIVE"]),
+        "limit": 100,
+    }
+
+    rows: list[dict] = []
+    page = 1
+    while True:
+        data = http_get(url, params)
+        batch = data.get("data", [])
+        rows.extend(batch)
+        print(f"  Creatives page {page}: {len(batch)} ads (total {len(rows)})")
+        next_url = data.get("paging", {}).get("next")
+        if not next_url:
+            break
+        url = next_url
+        params = {}
+        page += 1
+
+    active_rows = [r for r in rows if r.get("effective_status") == "ACTIVE"]
+    print(f"  {len(active_rows)} active ads to process")
+
+    records: list[dict] = []
+    cached = 0
+    failed = 0
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    for ad in active_rows:
+        ad_id = ad.get("id", "")
+        ad_name = ad.get("name", "")
+        creative = ad.get("creative") or {}
+        object_type = creative.get("object_type", "")
+        image_url = creative.get("image_url", "")
+        thumbnail_url = creative.get("thumbnail_url", "")
+
+        # Videos use thumbnail_url; images use image_url. Fall back if either missing.
+        download_url = image_url or thumbnail_url
+        local_rel = ""
+
+        if not download_url:
+            print(f"  ⚠ No image/thumbnail URL for {ad_name} ({ad_id}); skipping image")
+            failed += 1
+        else:
+            dest = output_dir / f"{ad_id}.jpg"
+            if _should_redownload(dest):
+                ok = _download_image(download_url, dest)
+                if ok:
+                    cached += 1
+                    local_rel = f"ad_creatives/{ad_id}.jpg"
+                else:
+                    print(f"  ⚠ Failed to cache {ad_name} ({ad_id})")
+                    failed += 1
+            else:
+                # Fresh-enough on disk; reuse it.
+                local_rel = f"ad_creatives/{ad_id}.jpg"
+
+        records.append({
+            "ad_id": ad_id,
+            "ad_name": ad_name,
+            "effective_status": ad.get("effective_status", ""),
+            "object_type": object_type,
+            "image_url": image_url,
+            "thumbnail_url": thumbnail_url,
+            "local_image_path": local_rel,
+            "last_fetched": now_iso,
+        })
+
+    df = pd.DataFrame(records, columns=CREATIVES_COLUMNS)
+    df.to_csv(csv_path, index=False)
+
+    return {"active": len(active_rows), "cached": cached, "failed": failed}
+
+
 def main() -> None:
     args = parse_args()
     load_dotenv(Path(__file__).resolve().parent.parent / ".env")
@@ -340,6 +490,18 @@ def main() -> None:
     print(f"  Fetched leads:     {int(fetched_leads):,}")
     print(f"  Output:            {OUTPUT_PATH.relative_to(OUTPUT_PATH.parent.parent)}")
     print()
+
+    if args.creatives:
+        print("Fetching active ad creatives...")
+        result = fetch_active_ad_creatives(
+            ad_account_id, access_token, CREATIVES_DIR, CREATIVES_CSV_PATH,
+        )
+        print(
+            f"Cached {result['cached']} creative images for {result['active']} active ads "
+            f"({result['failed']} failed)."
+        )
+        print(f"  Output: {CREATIVES_CSV_PATH.relative_to(CREATIVES_CSV_PATH.parent.parent)}")
+        print()
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -56,6 +58,7 @@ _TOP_CONFIG = {"short_name": _T("Ad", width="medium"),
 def render(data: dict) -> None:
     meta, purchases, leads = data["meta"], data["purchases"], data["leads"]
     attribution = data.get("ad_attribution", pd.DataFrame())
+    creatives = data.get("ad_creatives", pd.DataFrame())
     config = data["config"]
     if meta.empty:
         st.warning("No ad data available. Run scripts/fetch_meta_ads.py to pull from Meta API.")
@@ -63,11 +66,11 @@ def render(data: dict) -> None:
     snap = calculate_ad_spend_snapshot(meta, purchases, attribution)
     _render_spend_snapshot(snap)
     _render_spend_trend(meta, purchases, attribution, snap)
-    _render_decision_panels(meta, attribution, purchases)
+    _render_decision_panels(meta, attribution, purchases, creatives)
     _render_creative_type(meta, attribution)
     _render_campaign_performance(meta, attribution)
     _render_creative_fatigue(meta, attribution)
-    _render_top_ads_table(meta, attribution)
+    _render_top_ads_table(meta, attribution, creatives)
     _render_quality_rankings(meta)
     _render_break_even_analysis(meta, purchases, attribution, leads, config)
     _render_ai(snap, meta, attribution)
@@ -142,7 +145,7 @@ def _render_spend_trend(meta, purchases, attribution, s) -> None:
     st.markdown(alert(msg, var), unsafe_allow_html=True)
 
 
-def _render_decision_panels(meta, attribution, purchases) -> None:
+def _render_decision_panels(meta, attribution, purchases, creatives_df=None) -> None:
     st.markdown(section_header("What to Do This Week"), unsafe_allow_html=True)
     kill_full = identify_kill_ads(meta, attribution)
     kill = kill_full.head(5)
@@ -182,6 +185,35 @@ def _render_decision_panels(meta, attribution, purchases) -> None:
                 base += (f", and ROAS could lift from {impact['current_roas']:.2f}x "
                          f"to {impact['projected_roas']:.2f}x")
             st.markdown(alert(base + ".", "info"), unsafe_allow_html=True)
+
+    previewable = _previewable_ad_names(creatives_df)
+    if previewable:
+        panels_for_preview = []
+        if not kill.empty:
+            panels_for_preview.append(kill.assign(panel="🔴 Stop"))
+        if not scale.empty:
+            panels_for_preview.append(scale.assign(panel="🟢 Scale"))
+        if not test.empty:
+            panels_for_preview.append(test.assign(panel="🟡 Test"))
+        if panels_for_preview:
+            all_panel_ads = pd.concat(panels_for_preview, ignore_index=True)
+            all_panel_ads = all_panel_ads[all_panel_ads["ad_name"].isin(previewable)]
+            if not all_panel_ads.empty:
+                st.markdown("---")
+                st.markdown("**👁 Preview an ad from the panels:**")
+                options = [""] + [
+                    f"{row['panel']} — {row['short_name']}"
+                    for _, row in all_panel_ads.iterrows()
+                ]
+                selected = st.selectbox(
+                    "Select", options=options,
+                    key="panel_preview_select", label_visibility="collapsed",
+                )
+                if selected:
+                    short = selected.split(" — ", 1)[1]
+                    match = all_panel_ads[all_panel_ads["short_name"] == short]
+                    if not match.empty:
+                        _render_ad_preview(match.iloc[0]["ad_name"], creatives_df)
 
 
 def _render_creative_type(meta, attribution) -> None:
@@ -236,7 +268,7 @@ def _render_creative_fatigue(meta, attribution) -> None:
                  hide_index=True, column_config=_FATIGUE_CONFIG)
 
 
-def _render_top_ads_table(meta, attribution) -> None:
+def _render_top_ads_table(meta, attribution, creatives_df=None) -> None:
     st.markdown(section_header("Top Performing Ads"), unsafe_allow_html=True)
     df = get_top_ads_with_buyers(meta, attribution, top_n=20)
     if df.empty:
@@ -251,6 +283,22 @@ def _render_top_ads_table(meta, attribution) -> None:
             "danger"), unsafe_allow_html=True)
     st.dataframe(df.drop(columns=["ad_name"]), use_container_width=True,
                  hide_index=True, column_config=_TOP_CONFIG)
+
+    previewable = _previewable_ad_names(creatives_df)
+    preview_df = df[df["ad_name"].isin(previewable)] if previewable else df.iloc[0:0]
+    if not preview_df.empty:
+        st.markdown("---")
+        st.markdown("**👁 Preview an ad:**")
+        selected_ad = st.selectbox(
+            "Select an ad to view its creative",
+            options=[""] + preview_df["short_name"].tolist(),
+            key="top_ads_preview_select",
+            label_visibility="collapsed",
+        )
+        if selected_ad:
+            full_name_row = preview_df[preview_df["short_name"] == selected_ad]
+            if not full_name_row.empty:
+                _render_ad_preview(full_name_row.iloc[0]["ad_name"], creatives_df)
 
 
 def _render_quality_rankings(meta) -> None:
@@ -338,3 +386,24 @@ def _render_ai(snap, meta, attribution) -> None:
                f"ROAS {snap['roas']['value']:.2f}x ({snap['roas']['health']}).\n"
                f"KILL candidates: {kill_str}\nSCALE candidates: {scale_str}")
     render_ai_insights("ad_spend", context)
+
+
+def _previewable_ad_names(creatives_df: pd.DataFrame | None) -> set[str]:
+    """Ad names whose cached image row exists AND points to a file on disk."""
+    if creatives_df is None or creatives_df.empty:
+        return set()
+    out: set[str] = set()
+    for _, row in creatives_df.iterrows():
+        rel = row.get("local_image_path") or ""
+        if rel and (Path("data") / rel).exists():
+            out.add(row["ad_name"])
+    return out
+
+
+def _render_ad_preview(ad_name: str, creatives_df: pd.DataFrame) -> None:
+    row = creatives_df[creatives_df["ad_name"] == ad_name].iloc[0]
+    image_path = Path("data") / row["local_image_path"]
+    st.image(str(image_path), caption=ad_name, use_container_width=True)
+    last_fetched = str(row.get("last_fetched", ""))[:10]
+    obj_type = row.get("object_type", "") or "—"
+    st.caption(f"Type: {obj_type} • Last cached: {last_fetched}")

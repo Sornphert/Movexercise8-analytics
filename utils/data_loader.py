@@ -275,6 +275,30 @@ def load_meta_ads() -> pd.DataFrame:
     return df
 
 
+_AD_CREATIVES_COLUMNS = [
+    "ad_id", "ad_name", "effective_status", "object_type",
+    "image_url", "thumbnail_url", "local_image_path", "last_fetched",
+]
+
+
+@st.cache_data(ttl=3600)
+def load_ad_creatives() -> pd.DataFrame:
+    """Metadata for cached creative images, populated by
+    `python scripts/fetch_meta_ads.py --creatives`. Empty DataFrame if the
+    script hasn't been run with that flag yet."""
+    path = DATA_DIR / "meta_ad_creatives.csv"
+    if not path.exists():
+        return pd.DataFrame(columns=_AD_CREATIVES_COLUMNS)
+    df = pd.read_csv(path)
+    if df.empty:
+        return pd.DataFrame(columns=_AD_CREATIVES_COLUMNS)
+    for col in _AD_CREATIVES_COLUMNS:
+        if col not in df.columns:
+            df[col] = ""
+    df["ad_id"] = df["ad_id"].astype(str)
+    return df
+
+
 def _parse_webinar_start_date(label) -> pd.Timestamp | None:
     """Extract the start date from a human-written webinar date label.
 
@@ -756,6 +780,7 @@ def load_all() -> dict:
         "purchases": purchases,
         "meta": meta,
         "ad_attribution": attribution,
+        "ad_creatives": load_ad_creatives(),
         "objections": load_objections(),
         "webinars": webinars,
         "ebook": load_ebook_survey(),
@@ -771,6 +796,7 @@ if __name__ == "__main__":
     print(f"Leads:       {len(data['leads']):,} rows")
     print(f"Purchases:   {len(data['purchases']):,} rows")
     print(f"Meta ads:    {len(data['meta']):,} rows")
+    print(f"Creatives:   {len(data['ad_creatives']):,} rows")
     print(f"Objections:  {len(data['objections']):,} rows")
     print(f"Webinars:    {len(data['webinars'])} sessions")
     print(f"Converted:   {data['leads']['converted'].sum():,} leads matched a purchase")
