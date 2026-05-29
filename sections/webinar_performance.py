@@ -20,7 +20,7 @@ from utils.metrics import (
 from utils.styles import COLORS, alert, metric_card, section_header
 
 OFFER_MINUTE = 120
-MIN_DAY1_ATTENDEES = 50  # Exclude small sessions (likely Daphnie's personal meetings)
+MIN_DAY1_ATTENDEES = 25  # Exclude small sessions (likely Daphnie's personal meetings)
 _HEALTH = {
     "green":  ("🟢 Healthy",    "#40916C"),
     "yellow": ("🟡 Watch list", "#D4A843"),
