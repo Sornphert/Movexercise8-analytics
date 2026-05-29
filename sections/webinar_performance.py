@@ -135,11 +135,20 @@ def _render_snapshot(event: dict, webinars: dict, purchases: pd.DataFrame):
         ("Avg Watch — Day 2", f"{d2_avg:.0f} min" if day2 else "—"),
         ("Stayed 120+ — Day 1", f"{d1_stayed:.1f}%"),
         ("Stayed 120+ — Day 2", f"{d2_stayed:.1f}%" if day2 else "—"),
-        ("Day 1 → Day 2 Retention", f"{retention:.1f}%" if day2 else "—"),
     ]
-    for col, (label, val) in zip(cols, eng):
+    for col, (label, val) in zip(cols[:4], eng):
         with col:
             st.markdown(metric_card(label, val), unsafe_allow_html=True)
+
+    with cols[4]:
+        st.markdown(
+            metric_card(
+                "Day 1 → Day 2 Retention",
+                f"{retention:.1f}%" if day2 else "—",
+                info="Of attendees who joined Day 1, the percentage who came back for Day 2 of the same webinar.",
+            ),
+            unsafe_allow_html=True,
+        )
 
     # Group C — Conversion
     st.markdown(section_header("Conversion"), unsafe_allow_html=True)

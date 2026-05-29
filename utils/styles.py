@@ -1,3 +1,5 @@
+import html
+
 import streamlit as st
 
 MAIN_CSS = """
@@ -53,6 +55,60 @@ MAIN_CSS = """
     font-size: 0.78rem;
     color: #6C757D;
     margin: 0;
+}
+
+/* ── info icon + hover tooltip on metric card label ── */
+.mc .l { display: flex; align-items: center; gap: 0.4rem; }
+.mc-i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #E8F0EB;
+    color: #2D6A4F;
+    font-family: 'Fraunces', serif;
+    font-size: 0.65rem;
+    font-style: italic;
+    font-weight: 700;
+    cursor: help;
+    position: relative;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.mc-i:hover { background: #2D6A4F; color: #fff; }
+.mc-i:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1B4332;
+    color: #fff;
+    padding: 0.5rem 0.7rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.4;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: normal;
+    width: max-content;
+    max-width: 240px;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    pointer-events: none;
+}
+.mc-i:hover::before {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #1B4332;
+    z-index: 10;
 }
 
 /* ── section header ── */
@@ -129,10 +185,19 @@ COLORS = {
 _VARIANT_CLASS = {"danger": "mc-d", "warning": "mc-w"}
 
 
-def metric_card(label: str, value: str, sub: str = "", variant: str = "") -> str:
+def metric_card(label: str, value: str, sub: str = "", variant: str = "", info: str = "") -> str:
     cls = f"mc {_VARIANT_CLASS.get(variant, '')}"
     sub_html = f'<p class="s">{sub}</p>' if sub else ""
-    return f'<div class="{cls}"><p class="l">{label}</p><p class="v">{value}</p>{sub_html}</div>'
+    info_html = (
+        f'<span class="mc-i" data-tip="{html.escape(info, quote=True)}">i</span>'
+        if info else ""
+    )
+    return (
+        f'<div class="{cls}">'
+        f'<p class="l">{label}{info_html}</p>'
+        f'<p class="v">{value}</p>{sub_html}'
+        f'</div>'
+    )
 
 
 def inject_css():
