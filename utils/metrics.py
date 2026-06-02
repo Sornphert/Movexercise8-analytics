@@ -436,6 +436,57 @@ def get_outstanding_payments(
     )
 
 
+def calculate_payments_due(
+    purchases: pd.DataFrame,
+    course_fee_full: float = 2688,
+    today: pd.Timestamp | None = None,
+) -> pd.DataFrame:
+    """Installment buyers scheduled to pay this calendar month, ranked by total owed.
+
+    One row per installment buyer who is still on-plan (months_elapsed < plan_length)
+    and still has an outstanding balance. Buyers who paid the full fee upfront despite
+    the "Installment" label drop out naturally (compute_buyer_balance returns 0
+    outstanding for them). Sorted by total_outstanding desc, then months_remaining desc.
+    """
+    cols = [
+        "name", "phone", "monthly_amount", "months_remaining",
+        "months_label", "total_outstanding", "signup_date",
+    ]
+    today = today or pd.Timestamp.now().normalize()
+    df = _drop_refunds(purchases)
+    df = df[df["status"].astype(str).str.strip() == "Installment"]
+
+    rows = []
+    for _, row in df.iterrows():
+        amount = row.get("amount")
+        if pd.isna(amount):
+            continue
+        amount = float(amount)
+        plan = installment_plan_length(amount)
+        elapsed = months_elapsed(row["date"], today, plan)
+        outstanding = compute_buyer_balance(row, today, course_fee_full)["outstanding"]
+        if elapsed >= plan or outstanding <= 0:
+            continue
+        rows.append({
+            "name": row.get("name"),
+            "phone": row.get("phone"),
+            "monthly_amount": amount,
+            "months_remaining": plan - elapsed,
+            "months_label": f"{elapsed} of {plan} paid",
+            "total_outstanding": outstanding,
+            "signup_date": row["date"],
+        })
+
+    if not rows:
+        return pd.DataFrame(columns=cols)
+
+    return (
+        pd.DataFrame(rows, columns=cols)
+        .sort_values(["total_outstanding", "months_remaining"], ascending=[False, False])
+        .reset_index(drop=True)
+    )
+
+
 # ---------------------------------------------------------------------------
 # Failed Leads / Objections
 # ---------------------------------------------------------------------------
