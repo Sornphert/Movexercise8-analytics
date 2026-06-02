@@ -299,6 +299,29 @@ def load_ad_creatives() -> pd.DataFrame:
     return df
 
 
+@st.cache_data(ttl=300)
+def load_email_aliases() -> dict:
+    """Staff-maintained map of Stripe emails to purchase-sheet emails, for buyers
+    who paid Stripe under a different address than the one on their purchase record.
+
+    Returns ``{normalized_stripe_email: normalized_buyer_email}`` (both lowercase +
+    stripped). Empty dict if the file is missing or empty. Staff append rows to
+    ``data/email_aliases.csv`` (header ``stripe_email,buyer_email``) over time."""
+    path = DATA_DIR / "email_aliases.csv"
+    if not path.exists():
+        return {}
+    df = pd.read_csv(path)
+    if df.empty or "stripe_email" not in df.columns or "buyer_email" not in df.columns:
+        return {}
+    out = {}
+    for _, row in df.iterrows():
+        stripe_email = str(row["stripe_email"]).strip().lower()
+        buyer_email = str(row["buyer_email"]).strip().lower()
+        if stripe_email and buyer_email and stripe_email != "nan" and buyer_email != "nan":
+            out[stripe_email] = buyer_email
+    return out
+
+
 def _parse_webinar_start_date(label) -> pd.Timestamp | None:
     """Extract the start date from a human-written webinar date label.
 

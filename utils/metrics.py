@@ -450,7 +450,7 @@ def calculate_payments_due(
     """
     cols = [
         "name", "phone", "monthly_amount", "months_remaining",
-        "months_label", "total_outstanding", "signup_date",
+        "months_label", "total_outstanding", "signup_date", "norm_email", "norm_name",
     ]
     today = today or pd.Timestamp.now().normalize()
     df = _drop_refunds(purchases)
@@ -475,6 +475,8 @@ def calculate_payments_due(
             "months_label": f"{elapsed} of {plan} paid",
             "total_outstanding": outstanding,
             "signup_date": row["date"],
+            "norm_email": row.get("norm_email"),
+            "norm_name": _norm_name(row.get("name")),
         })
 
     if not rows:
@@ -485,6 +487,155 @@ def calculate_payments_due(
         .sort_values(["total_outstanding", "months_remaining"], ascending=[False, False])
         .reset_index(drop=True)
     )
+
+
+# Description markers that identify a Daphnie Movexercise installment charge in a
+# Stripe export. Matched case-insensitively as substrings of the Description field.
+_MOVEXERCISE_INSTALLMENT_MARKERS = (
+    "movexercise8 12m",
+    "movexercise8 6m",
+    "movexercise 3m",
+    "movexercise8 installment",
+)
+
+
+def _norm(value) -> str:
+    """Lowercase + strip, NaN-safe. Same normalization for both sides of a match."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    return str(value).strip().lower()
+
+
+def _norm_name(value) -> str:
+    """Lowercase and keep only a-z, concatenated (no spaces/punctuation/digits).
+
+    NaN-safe. e.g. "Mala Thena Resh Kumar" -> "malathenareshkumar". Used as the key
+    for the conservative name-fallback layer in reconcile_payments_with_stripe."""
+    return re.sub(r"[^a-z]", "", _norm(value))
+
+
+_NAME_FALLBACK_MIN_LEN = 6
+
+
+def reconcile_payments_with_stripe(
+    due_df: pd.DataFrame,
+    stripe_df: pd.DataFrame,
+    aliases: dict | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Cross-reference the payments-due list against a Stripe export.
+
+    Limited to Stripe rows whose Description marks a Movexercise installment charge
+    (see ``_MOVEXERCISE_INSTALLMENT_MARKERS``). For each due buyer, three matching
+    layers are tried IN ORDER, stopping at the first that yields a match:
+      (a) email   — Stripe Customer Email (normalized) == buyer's norm_email.
+      (b) alias   — Stripe email mapped through ``aliases`` == buyer's norm_email.
+                    ``aliases`` is {normalized_stripe_email: normalized_buyer_email}.
+      (c) name    — buyer's normalized name (a-z, concatenated) EXACTLY equals the
+                    name token from the Stripe email local-part (a-z, digits stripped),
+                    with a length>=6 floor. Equality, not containment — containment
+                    risks partial-name collisions and a false "Paid", the worst case.
+                    Ambiguous names stay unmatched (use the alias table or manual review).
+
+    Returns ``(reconciled_due_df, unmatched_stripe_df)``:
+      - reconciled_due_df: a copy of ``due_df`` with four added columns —
+        ``stripe_status`` ("Paid" / "Failed" / "No record"), ``stripe_amount``
+        (matched charge amount, or ""), ``stripe_email`` (matched Customer Email, or
+        ""), and ``match_method`` ("email" / "alias" / "name" / "" for no record).
+        When a buyer has multiple matching rows, a Paid row wins: status is "Paid"
+        and the Paid row's amount/email are recorded regardless of how many Failed
+        rows also exist. "Failed" only when there are matches but none are Paid.
+      - unmatched_stripe_df: Stripe Paid/Failed installment charges that matched NO
+        buyer by ANY layer — the "check manually" cases. Columns:
+        ``["stripe_email", "amount", "status", "description"]``.
+
+    Assumes ``stripe_df`` has the columns Customer Email, Status, Amount, Description
+    (the caller validates this).
+    """
+    aliases = aliases or {}
+    out = due_df.copy()
+    out["stripe_status"] = "No record"
+    out["stripe_amount"] = ""
+    out["stripe_email"] = ""
+    out["match_method"] = ""
+
+    unmatched_cols = ["stripe_email", "amount", "status", "description"]
+
+    # Filter Stripe rows to Movexercise installment charges.
+    desc_norm = stripe_df["Description"].apply(_norm)
+    is_installment = desc_norm.apply(
+        lambda d: any(m in d for m in _MOVEXERCISE_INSTALLMENT_MARKERS)
+    )
+    inst = stripe_df[is_installment].copy()
+    if inst.empty:
+        return out, pd.DataFrame(columns=unmatched_cols)
+
+    inst["_norm_email"] = inst["Customer Email"].apply(_norm)
+    inst["_norm_status"] = inst["Status"].apply(_norm)
+    inst["_alias_email"] = inst["_norm_email"].map(aliases).fillna("")
+    # Name token: local-part of the email, keep only a-z.
+    inst["_name_token"] = inst["_norm_email"].apply(
+        lambda e: re.sub(r"[^a-z]", "", e.split("@")[0])
+    )
+
+    matched_idx: set = set()
+    for idx, row in out.iterrows():
+        buyer_email = _norm(row.get("norm_email"))
+        buyer_name = _norm_name(row.get("norm_name"))
+
+        # Layers in priority order; stop at the first yielding any match.
+        matches = pd.DataFrame()
+        method = ""
+        if buyer_email:
+            m = inst[inst["_norm_email"] == buyer_email]
+            if not m.empty:
+                matches, method = m, "email"
+        if matches.empty and buyer_email:
+            m = inst[inst["_alias_email"] == buyer_email]
+            if not m.empty:
+                matches, method = m, "alias"
+        if matches.empty and buyer_name and len(buyer_name) >= _NAME_FALLBACK_MIN_LEN:
+            m = inst[inst["_name_token"] == buyer_name]
+            if not m.empty:
+                matches, method = m, "name"
+
+        if matches.empty:
+            continue
+
+        paid = matches[matches["_norm_status"] == "paid"]
+        failed = matches[matches["_norm_status"] == "failed"]
+        if not paid.empty:
+            chosen = paid.iloc[0]
+            out.at[idx, "stripe_status"] = "Paid"
+        elif not failed.empty:
+            chosen = failed.iloc[0]
+            out.at[idx, "stripe_status"] = "Failed"
+        else:
+            # Matched rows exist but none are Paid/Failed (e.g. refunded) — record the
+            # match so the Stripe rows aren't flagged unmatched, but no status change.
+            matched_idx.update(matches.index)
+            out.at[idx, "match_method"] = method
+            continue
+        out.at[idx, "stripe_amount"] = chosen["Amount"]
+        out.at[idx, "stripe_email"] = chosen["Customer Email"]
+        out.at[idx, "match_method"] = method
+        matched_idx.update(matches.index)
+
+    # Unmatched: Paid/Failed installment charges that matched no buyer by any layer.
+    unmatched = inst[
+        inst["_norm_status"].isin(["paid", "failed"])
+        & ~inst.index.isin(matched_idx)
+    ]
+    if unmatched.empty:
+        unmatched_out = pd.DataFrame(columns=unmatched_cols)
+    else:
+        unmatched_out = pd.DataFrame({
+            "stripe_email": unmatched["Customer Email"].values,
+            "amount": unmatched["Amount"].values,
+            "status": unmatched["Status"].values,
+            "description": unmatched["Description"].values,
+        })
+
+    return out, unmatched_out
 
 
 # ---------------------------------------------------------------------------
