@@ -468,6 +468,7 @@ def load_webinars() -> dict:
 
         # Present at offer minute: unique emails whose ANY join interval spans it.
         present_at_offer = 0
+        present_emails = []
         peak_attendance = 0
         if unique_attendees > 0 and {"Join time", "Leave time"}.issubset(participants.columns):
             jt = pd.to_datetime(participants["Join time"], format="%m/%d/%Y %I:%M:%S %p", errors="coerce")
@@ -503,6 +504,7 @@ def load_webinars() -> dict:
             "stayed_120plus_pct": stayed_120plus_pct,
             "left_30min_pct": left_30min_pct,
             "present_at_offer": present_at_offer,
+            "present_at_offer_emails": {str(e).strip().lower() for e in present_emails},
             "offer_minute": offer_minute,
             "peak_attendance": peak_attendance,
             "waiting_room_bounces": waiting_room_bounces,

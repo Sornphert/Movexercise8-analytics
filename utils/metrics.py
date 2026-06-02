@@ -2210,3 +2210,191 @@ def calculate_time_to_convert_buckets(
         within_7_pct = 0.0
 
     return {"buckets": bucket_df, "median_days": median_days, "within_7_pct": within_7_pct}
+
+
+# ── Hot List ──────────────────────────────────────────────────────────────
+_HIGH_INTENT_TOKENS = ("yes", "consider", "interest", "join", "plan", "keen")
+_LOW_INTENT_TOKENS = ("not ", "no ", "maybe not")
+
+
+def _is_high_intent(value) -> bool:
+    """True when the e-book free-text 'intent' signals active consideration of M8."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return False
+    s = str(value).strip().lower()
+    if not s:
+        return False
+    if any(neg in s for neg in _LOW_INTENT_TOKENS):
+        return False
+    return any(pos in s for pos in _HIGH_INTENT_TOKENS)
+
+
+def _clean_str(value) -> str:
+    """Trim a value to a display string, treating NaN/'nan'/empty as blank."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    s = str(value).strip()
+    return "" if s.lower() in ("", "nan", "none") else s
+
+
+def calculate_hot_list(
+    leads: pd.DataFrame,
+    purchases: pd.DataFrame,
+    webinars: dict,
+    ebook: pd.DataFrame,
+    objections: pd.DataFrame,
+    today=None,
+) -> pd.DataFrame:
+    """Ranked call list of warm, non-buying leads.
+
+    Candidates are everyone appearing in webinar attendance (Zoom is email-only,
+    so we recover their phone by matching the attendee email back to ``leads``),
+    the e-book survey, or the objections log — deduped by normalized phone and
+    with existing buyers excluded. Each candidate is scored by buying signals;
+    a transparent ``reasons`` string explains the ranking.
+
+    IMPORTANT: callers must pass the FULL, unfiltered datasets. Buyer exclusion
+    has to see every purchase and the candidate pool must not shrink with any
+    date filter — recency is captured as a scoring signal, never a hard filter.
+    """
+    cols = ["name", "phone", "score", "reasons", "webinar_date", "objection", "intent"]
+    if today is None:
+        today = pd.Timestamp.now().normalize()
+
+    buyer_phones = _purchase_phone_set(purchases)
+
+    # email -> lead identity, to recover phone + name for (email-only) attendees
+    email_to_lead: dict[str, dict] = {}
+    if leads is not None and not leads.empty:
+        for _, row in leads.iterrows():
+            email = row.get("norm_email")
+            phone = row.get("norm_phone")
+            if pd.isna(email) or not str(email).strip() or pd.isna(phone) or not phone:
+                continue
+            email_to_lead[str(email).strip().lower()] = {
+                "norm_phone": phone,
+                "name": row.get("name"),
+                "phone": row.get("phone"),
+            }
+
+    candidates: dict[str, dict] = {}
+
+    def _get(norm_phone: str) -> dict:
+        c = candidates.get(norm_phone)
+        if c is None:
+            c = {
+                "name": "", "display_phone": "", "stayed_offer": False,
+                "attended": False, "high_intent": False, "has_objection": False,
+                "last_webinar_date": None, "objection_category": "", "intent": "",
+            }
+            candidates[norm_phone] = c
+        return c
+
+    def _fill(c: dict, field: str, value: str) -> None:
+        if not c[field]:
+            v = _clean_str(value)
+            if v:
+                c[field] = v
+
+    # 1) Webinar attendance — recover phone via email -> lead lookup
+    for session in webinars.values():
+        parts = session.get("participants")
+        if parts is None or parts.empty or "Email" not in parts.columns:
+            continue
+        offer_emails = session.get("present_at_offer_emails", set())
+        wdate = pd.Timestamp(session["date"]) if session.get("date") else None
+        for email in parts["Email"].dropna():
+            key = str(email).strip().lower()
+            lead = email_to_lead.get(key)
+            if lead is None:
+                continue  # no phone recoverable -> can't call or dedupe them
+            c = _get(lead["norm_phone"])
+            _fill(c, "name", lead["name"])
+            _fill(c, "display_phone", lead["phone"])
+            if key in offer_emails:
+                c["stayed_offer"] = True
+            else:
+                c["attended"] = True
+            if wdate is not None and (c["last_webinar_date"] is None or wdate > c["last_webinar_date"]):
+                c["last_webinar_date"] = wdate
+
+    # 2) E-book intent
+    if ebook is not None and not ebook.empty and "norm_phone" in ebook.columns:
+        for _, row in ebook.iterrows():
+            phone = row.get("norm_phone")
+            if pd.isna(phone) or not phone:
+                continue
+            c = _get(phone)
+            _fill(c, "name", row.get("name"))
+            _fill(c, "display_phone", row.get("phone"))
+            intent_val = row.get("intent")
+            if _is_high_intent(intent_val):
+                # Surface the text that actually fired the flag so the displayed
+                # intent stays consistent with the "high intent" reason.
+                c["high_intent"] = True
+                c["intent"] = _clean_str(intent_val) or c["intent"]
+            else:
+                _fill(c, "intent", intent_val)
+
+    # 3) Objections
+    if objections is not None and not objections.empty and "norm_phone" in objections.columns:
+        for _, row in objections.iterrows():
+            phone = row.get("norm_phone")
+            if pd.isna(phone) or not phone:
+                continue
+            c = _get(phone)
+            _fill(c, "name", row.get("name"))
+            c["has_objection"] = True
+            _fill(c, "objection_category", row.get("category"))
+
+    # 4) Exclude buyers, then score
+    rows = []
+    for norm_phone, c in candidates.items():
+        if norm_phone in buyer_phones:
+            continue
+        score = 0
+        reasons: list[str] = []
+        if c["stayed_offer"]:
+            score += 3
+            reasons.append("stayed to offer")
+        elif c["attended"]:
+            score += 1
+            reasons.append("attended webinar")
+        if c["high_intent"]:
+            score += 2
+            reasons.append("high intent")
+        if c["has_objection"]:
+            score += 1
+            reasons.append("has objection")
+        last = c["last_webinar_date"]
+        if last is not None:
+            days = (today - last).days
+            if days <= 14:
+                score += 2
+                reasons.append("last 14 days")
+            elif days <= 30:
+                score += 1
+                reasons.append("last 30 days")
+        if score <= 0:
+            continue  # no signal fired -> not a hot lead
+        rows.append({
+            "name": c["name"] or "—",
+            "phone": c["display_phone"] or norm_phone,
+            "score": score,
+            "reasons": " · ".join(reasons),
+            "webinar_date": last.strftime("%Y-%m-%d") if last is not None else "",
+            "objection": c["objection_category"],
+            "intent": c["intent"],
+            "_sort_date": last if last is not None else pd.Timestamp.min,
+        })
+
+    if not rows:
+        return pd.DataFrame(columns=cols)
+
+    df = pd.DataFrame(rows)
+    df = (
+        df.sort_values(["score", "_sort_date"], ascending=[False, False])
+        .drop(columns=["_sort_date"])
+        .reset_index(drop=True)
+    )
+    return df[cols]

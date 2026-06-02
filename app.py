@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-from sections import ad_spend_roi, ai_chat, ebook_survey, failed_leads, lead_pipeline, overview, sales_revenue, webinar_performance
+from sections import ad_spend_roi, ai_chat, ebook_survey, failed_leads, hot_list, lead_pipeline, overview, sales_revenue, webinar_performance
 from utils.data_loader import load_all
 from utils.styles import inject_css
 
@@ -98,24 +98,26 @@ with st.sidebar:
         st.session_state["gemini_api_key"] = st.secrets.get("GEMINI_API_KEY", "")
 
 # ── Tabs ──────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
-    ["Overview", "Sales & Revenue", "Lead Pipeline", "Webinar Performance",
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(
+    ["Overview", "Hot List", "Sales & Revenue", "Lead Pipeline", "Webinar Performance",
      "Failed Leads", "E-book Survey", "Ad Spend & ROI", "AI Assistant"]
 )
 
 with tab1:
     overview.render(data)
 with tab2:
-    sales_revenue.render(data)
+    hot_list.render(data)
 with tab3:
-    lead_pipeline.render(data)
+    sales_revenue.render(data)
 with tab4:
-    webinar_performance.render(data)
+    lead_pipeline.render(data)
 with tab5:
-    failed_leads.render(data)
+    webinar_performance.render(data)
 with tab6:
-    ebook_survey.render(data)
+    failed_leads.render(data)
 with tab7:
-    ad_spend_roi.render(data)
+    ebook_survey.render(data)
 with tab8:
+    ad_spend_roi.render(data)
+with tab9:
     ai_chat.render(data)
