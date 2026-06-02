@@ -99,22 +99,22 @@ with st.sidebar:
 
 # ── Tabs ──────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(
-    ["Overview", "Hot List", "Sales & Revenue", "Lead Pipeline", "Webinar Performance",
-     "Failed Leads", "E-book Survey", "Ad Spend & ROI", "AI Assistant"]
+    ["Overview", "Sales & Revenue", "Lead Pipeline", "Webinar Performance", "Failed Leads",
+     "Hot List", "E-book Survey", "Ad Spend & ROI", "AI Assistant"]
 )
 
 with tab1:
     overview.render(data)
 with tab2:
-    hot_list.render(data)
-with tab3:
     sales_revenue.render(data)
-with tab4:
+with tab3:
     lead_pipeline.render(data)
-with tab5:
+with tab4:
     webinar_performance.render(data)
-with tab6:
+with tab5:
     failed_leads.render(data)
+with tab6:
+    hot_list.render(data)
 with tab7:
     ebook_survey.render(data)
 with tab8:
