@@ -443,10 +443,15 @@ def calculate_payments_due(
 ) -> pd.DataFrame:
     """Installment buyers scheduled to pay this calendar month, ranked by total owed.
 
-    One row per installment buyer who is still on-plan (months_elapsed < plan_length)
-    and still has an outstanding balance. Buyers who paid the full fee upfront despite
-    the "Installment" label drop out naturally (compute_buyer_balance returns 0
-    outstanding for them). Sorted by total_outstanding desc, then months_remaining desc.
+    One row per installment buyer still within their plan window (months 1..plan_length,
+    inclusive of the final month). The current month's installment is treated as still
+    *due* — it's the payment we're chasing — not yet collected, so a buyer in their final
+    month surfaces with one month outstanding rather than dropping out. Buyers who have
+    passed their final scheduled month (elapsed > plan_length) are excluded, as are buyers
+    who paid the full fee upfront despite the "Installment" label. Whether the current
+    month is actually paid is a separate question answered by the Stripe reconciliation
+    (stripe_status), not this date math. Sorted by total_outstanding desc, then
+    months_remaining desc.
     """
     cols = [
         "name", "phone", "monthly_amount", "months_remaining",
@@ -462,19 +467,32 @@ def calculate_payments_due(
         if pd.isna(amount):
             continue
         amount = float(amount)
+        # Full fee paid upfront despite the "Installment" label — not on a schedule.
+        if amount >= float(course_fee_full):
+            continue
+        signup = row["date"]
+        if pd.isna(signup):
+            continue
         plan = installment_plan_length(amount)
-        elapsed = months_elapsed(row["date"], today, plan)
-        outstanding = compute_buyer_balance(row, today, course_fee_full)["outstanding"]
-        if elapsed >= plan or outstanding <= 0:
+        # Unclamped months since signup (signup month counts as month 1). We need the raw
+        # value here — months_elapsed() clamps to plan, which can't distinguish "in the
+        # final month" (== plan) from "past plan end" (> plan).
+        elapsed = (today.year - signup.year) * 12 + (today.month - signup.month) + 1
+        # Done only once past the final scheduled month. Months 1..plan are still due.
+        if elapsed < 1 or elapsed > plan:
+            continue
+        # Prior months are collected; the current (possibly final) month is still owed.
+        outstanding = amount * (plan - (elapsed - 1))
+        if outstanding <= 0:
             continue
         rows.append({
             "name": row.get("name"),
             "phone": row.get("phone"),
             "monthly_amount": amount,
             "months_remaining": plan - elapsed,
-            "months_label": f"{elapsed} of {plan} paid",
+            "months_label": f"{elapsed} of {plan}",
             "total_outstanding": outstanding,
-            "signup_date": row["date"],
+            "signup_date": signup,
             "norm_email": row.get("norm_email"),
             "norm_name": _norm_name(row.get("name")),
         })

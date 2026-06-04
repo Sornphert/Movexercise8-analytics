@@ -16,9 +16,10 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - The Gemini API key for the AI Assistant tab is read from `.streamlit/secrets.toml` (`GEMINI_API_KEY = "..."`); the sidebar lets users override it per-session.
 
 ## Architecture
-- `app.py` is the only entry point. It calls `load_all()` once, then **mutates `data` in place** based on the sidebar date filter ([app.py:69-80](app.py#L69-L80)) before dispatching to each section's `render(data)`. Section files must NOT re-apply date filters — the data they receive is already scoped.
+- `app.py` is the only entry point. It calls `load_all()` once, then **mutates `data` in place** based on the sidebar date filter ([app.py:69-84](app.py#L69-L84)) before dispatching to each section's `render(data)`. Section files must NOT re-apply date filters — the data they receive is already scoped. The filter scopes `leads`, `purchases`, `objections` (rows with no `_filter_date` are kept), `webinars`, and `ebook`.
+- **Two tabs deliberately bypass the sidebar filter**: `sections/hot_list.py` and `sections/payments_due.py` re-call `load_all()` to get the unfiltered (cached) data. These are operational worklists (who to call, who owes money this month) that must reason over the entire dataset regardless of the selected date range. Do not "fix" this by switching them to the passed-in `data`.
 - `load_all()` returns a dict with these keys (this shape is the contract between the loader and every section):
-  - `leads` — DataFrame, enriched with a `registered_for_webinar` column (next webinar within 9 days of registration, or 'Unknown')
+  - `leads` — DataFrame, enriched with a `registered_for_webinar` column (next webinar within 9 days of registration, or 'Unknown') and a `converted` boolean column (lead matched a purchase on normalized email or phone)
   - `purchases` — DataFrame, enriched with an `inferred_webinar` column (nearest webinar on/before the purchase date, within 14 days)
   - `webinars` — **dict** keyed by session id, not a DataFrame. Each value has `date`, attendee lists, etc.
   - `meta` — DataFrame of Meta Ads rows
@@ -31,8 +32,8 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - Per-webinar sales aggregation: use `get_webinar_sales_summary()` from `utils/data_loader.py` rather than re-deriving from `purchases` + `inferred_webinar`.
 
 ## Project structure
-- `app.py` — Entry point. Just sidebar + tab routing. Keep this file under 80 lines.
-- `sections/` — One file per dashboard tab. Each exports a `render(data)` function.
+- `app.py` — Entry point. Sidebar (Refresh data / Fetch new Zoom data buttons, date filter, data-loaded counts) + 10-tab routing. Keep this file lean (~125 lines).
+- `sections/` — One file per dashboard tab. Each exports a `render(data)` function. The 10 tabs, in order: `overview`, `sales_revenue`, `lead_pipeline`, `webinar_performance`, `failed_leads`, `hot_list`, `payments_due`, `ebook_survey`, `ad_spend_roi`, `ai_chat`.
 - `utils/data_loader.py` — Loads and normalizes all CSVs. Cached with `@st.cache_data`.
 - `utils/metrics.py` — Pure calculation functions. Take DataFrames, return numbers/dicts. No Streamlit calls.
 - `utils/charts.py` — Reusable Plotly chart helpers with consistent styling.
@@ -40,7 +41,8 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - `data/` — All CSVs and the `zoom_participants/` folder. Plus `config.json` for program metadata.
 - `scripts/fetch_purchases_data.py` — Pulls `purchases.csv` from the public Google Sheet via CSV-export URL. Requires `PURCHASES_SHEET_URL` in `.env`. Supports `--dry-run`.
 - `scripts/fetch_zoom_data.py` — Pulls Zoom participant CSVs via Server-to-Server OAuth. Requires `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` in `.env`. Uses per-occurrence UUID so same-date sessions don't collide.
-- `scripts/fetch_meta_ads.py` — Pulls daily ad insights from the Meta Marketing API and overwrites `data/meta_ads.csv`. Requires `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID` in `.env`. Supports `--days`, `--from`/`--to`, `--dry-run`, `--creatives` (also fetches image cache for active ads).
+- `scripts/fetch_meta_ads.py` — Pulls daily ad insights from the Meta Marketing API and **merges** the fetched window into `data/meta_ads.csv` (dates outside the window are preserved; rows are de-duped on `(reporting_starts, ad_name)` with fetched data winning, then sorted by date). Large windows are fetched in 30-day chunks internally to avoid Meta's HTTP 500. Requires `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID` in `.env`. Supports `--days`, `--from`/`--to`, `--dry-run`, `--overwrite` (wipe + write window only), `--backfill`, `--creatives` (also fetches image cache for active ads).
+- `scripts/recategorize_still_considering.py` — One-off maintenance script that re-buckets vague "still considering" rows in `objections.csv` into more specific objection categories.
 
 ## Conventions
 - All metric calculations live in `utils/metrics.py`. Never inline math in section files.
@@ -59,7 +61,8 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - `ad_creatives/*.jpg` — Cached creative images (one per active ad), keyed by Meta ad_id. Re-downloaded when older than 7 days.
 - `objections.csv` — Failed lead analysis. Columns: name, phone, webinar_date, primary_objection, category, child_issue, child_age, notes
 - `zoom_participants/*.csv` — Raw Zoom participant reports. Files with `__1_` in the name are duplicates and should be skipped.
-- `config.json` — Program metadata (name, teacher, course fee, currency, offer timing)
+- `email_aliases.csv` — Staff-maintained `stripe_email,buyer_email` mapping. Used by the Payments Due tab to match Stripe charges to buyers whose Stripe email differs from their purchase-sheet email. Loaded via `load_email_aliases()`.
+- `config.json` — Program metadata: `program_name`, `teacher_name`, `course_fee_full` (2688), `currency` (MYR), `webinar_format`, `offer_timing_minutes` (120), `webinar_scheduled_start`.
 
 ## Important quirks
 - Phone numbers come in messy formats (+60 12-345 6789, 60123456789, 0123456789). Always normalize through `normalize_phone()` in `data_loader.py` before matching.
@@ -68,11 +71,14 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - Zoom participant files come in pairs (one with `__1_` suffix). The duplicates have identical data — skip them.
 - The "offer timing" is around 120 minutes into each Day 1 webinar. This is the key moment for engagement analysis.
 - `purchases.csv` is now a **fallback cache only**. The dashboard pulls live from Google Sheets via `gspread` inside `load_purchases()` (5-min TTL, same pattern as `load_leads()`). Sheet ID and gid are in `.streamlit/secrets.toml` under `[sheets]`. The service account `sheets-reader@movexercise8.iam.gserviceaccount.com` must have view access to the sheet. `scripts/fetch_purchases_data.py` still works for manual refreshes of the local CSV but is no longer required for the dashboard to be fresh.
-- `meta_ads.csv` is auto-pulled from the Meta Marketing API — do not hand-edit. Run `python scripts/fetch_meta_ads.py` to refresh. Ranking columns use literal `"-"` for missing data (the dashboard filters on this exact string).
+- `meta_ads.csv` is auto-pulled from the Meta Marketing API — do not hand-edit. Run `python scripts/fetch_meta_ads.py` to refresh; this **merges** the fetched window into the file (history outside the window is kept). Use `--overwrite` only if you intentionally want to discard everything but the fetched window. Ranking columns use literal `"-"` for missing data (the dashboard filters on this exact string).
 - `load_all()` enriches purchases with an `inferred_webinar` column (nearest webinar on/before the purchase date, within 14 days). Use `get_webinar_sales_summary()` from `utils/data_loader.py` for per-webinar sales breakdowns.
 - `load_all()` enriches leads with a `registered_for_webinar` column (next webinar within 9 days). Use `get_webinar_registration_summary()` from `utils/data_loader.py` for per-webinar registration breakdowns. The 9-day window covers ad campaigns that run between Mon-Thu webinar dates.
 - Ad-to-buyer attribution requires `utm_content` on `purchases.csv` to match `ad_name` in `meta_ads.csv`. Coverage is partial (~80% of buyers have UTMs). Ads with `buyers=0` in `data["ad_attribution"]` may have actual buyers we couldn't attribute via UTM.
 - Ad creative images are cached locally in `data/ad_creatives/` only for currently-active ads. Run `python scripts/fetch_meta_ads.py --creatives` to refresh. Paused ads won't have previews — that's intentional to keep the cache lean.
+- **Payments Due** (`calculate_payments_due`) infers an installment schedule from signup date: one row per installment buyer still within their plan window (months 1..plan_length). The current month's installment is treated as still *due* (the payment being chased), so a buyer in their final month surfaces as "Final month" rather than dropping out. Buyers past their final month, refunds, and buyers who paid full upfront despite an "Installment" label are excluded. This is a schedule, not a record of confirmed-unpaid — a buyer may have already paid or paid early.
+- **Stripe reconciliation** (`reconcile_payments_with_stripe`) is optional: upload a Stripe export CSV (must have `Customer Email`, `Status`, `Amount`, `Description`) on the Payments Due tab to tag each due buyer Paid / Failed / No record. Matching order: email → `email_aliases.csv` alias → exact name-in-email fallback. Stripe charges that match no due buyer are listed separately for manual resolution.
+- **Hot List** (`calculate_hot_list`) ranks warm non-buyer leads by buying signals (stayed to the offer pitch, high stated intent from the e-book survey, a logged objection, recent attendance). It excludes anyone who has purchased across the *entire* purchase set, which is why it (like Payments Due) re-loads unfiltered data.
 
 ## Testing
 - Run locally with `streamlit run app.py`
@@ -88,5 +94,7 @@ A Streamlit analytics dashboard for MOVEXERCISE8, an online course by Daphnie Wo
 - [done] E-book Survey tab — surfaces self-reported objections + intent vs actual conversion, with canonical-bucket regex matching for the free-text "What stops you from joining" column. Sheet config in `[sheets]` section of `.streamlit/secrets.toml` (`ebook_sheet_id`, `ebook_worksheet_gid`).
 - [done] Purchases auto-pull from Google Sheets + webinar attribution (`inferred_webinar`, "Sales from latest" Overview card)
 - [done] Ad creative preview — pick an ad in Top Ads or Decision Panels to view its image. Active ads only; opt-in via `scripts/fetch_meta_ads.py --creatives`.
+- [done] Hot List tab — warm non-buyer leads scored by buying signals (offer-pitch attendance, stated intent, logged objection, recency) as a top-down call list. Reasons over the full unfiltered dataset.
+- [done] Payments Due tab — monthly installment collection worklist inferred from signup dates, ranked by total outstanding. Optional Stripe-export upload reconciles the schedule against actual Paid/Failed charges (email → alias table → name-in-email matching). Reasons over the full unfiltered dataset.
 
 Update this checklist as features get added.

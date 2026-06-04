@@ -25,6 +25,10 @@ def _base_display(due: pd.DataFrame) -> pd.DataFrame:
         errors="ignore",
     ).rename(columns=_DISPLAY_RENAMES).copy()
     display["Signed Up"] = display["Signed Up"].dt.strftime("%d %b %Y")
+    # 0 months left = the buyer is in their final scheduled month (payment due now).
+    display["Months Left"] = display["Months Left"].map(
+        lambda n: "Final month" if n == 0 else str(int(n))
+    )
     return display
 
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import base64
 import json
 import re
+from io import BytesIO
 from pathlib import Path
 
 import gspread
@@ -297,6 +299,49 @@ def load_ad_creatives() -> pd.DataFrame:
             df[col] = ""
     df["ad_id"] = df["ad_id"].astype(str)
     return df
+
+
+@st.cache_data(ttl=3600)
+def build_creative_thumbnail_map(creatives_df: pd.DataFrame,
+                                 size: tuple[int, int] = (160, 160)) -> dict[str, str]:
+    """Map each ad_name to a small base64 JPEG data URI built from its LOCAL
+    cached creative file (never the expiring fbcdn URLs). Images are resized to
+    `size` so the payload stays tiny. Ads with no cached file on disk are
+    omitted (callers substitute a placeholder)."""
+    out: dict[str, str] = {}
+    if creatives_df is None or creatives_df.empty:
+        return out
+    from PIL import Image
+    for _, row in creatives_df.iterrows():
+        rel = row.get("local_image_path") or ""
+        if not rel:
+            continue
+        abs_path = DATA_DIR / rel
+        if not abs_path.exists():
+            continue
+        try:
+            with Image.open(abs_path) as img:
+                img = img.convert("RGB")
+                img.thumbnail(size)
+                buf = BytesIO()
+                img.save(buf, format="JPEG", quality=80)
+            b64 = base64.b64encode(buf.getvalue()).decode()
+            out[row["ad_name"]] = f"data:image/jpeg;base64,{b64}"
+        except Exception:
+            continue
+    return out
+
+
+@st.cache_data(ttl=3600)
+def creative_placeholder_data_uri(size: tuple[int, int] = (160, 160)) -> str:
+    """A clean light-gray box as a JPEG data URI, shown for ads with no cached
+    creative so the table cell never renders a broken-image icon."""
+    from PIL import Image
+    img = Image.new("RGB", size, (238, 238, 238))
+    buf = BytesIO()
+    img.save(buf, format="JPEG", quality=70)
+    b64 = base64.b64encode(buf.getvalue()).decode()
+    return f"data:image/jpeg;base64,{b64}"
 
 
 @st.cache_data(ttl=300)

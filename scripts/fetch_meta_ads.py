@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 """Fetch Meta Ads insights and save as data/meta_ads.csv.
 
+By default the fetched window is MERGED into the existing CSV: rows for dates the
+fetch covers are refreshed, while rows for dates outside the window are preserved.
+Pass --overwrite for the old wipe-everything behavior.
+
+Large windows are fetched internally in 30-day chunks so a big --days value
+doesn't trip Meta's HTTP 500 ("request too heavy").
+
 Usage:
-    python scripts/fetch_meta_ads.py                          # last 30 days
-    python scripts/fetch_meta_ads.py --days 90                # custom lookback
+    python scripts/fetch_meta_ads.py                          # last 30 days, merged
+    python scripts/fetch_meta_ads.py --days 90                # custom lookback (chunked)
     python scripts/fetch_meta_ads.py --from 2025-11-01 --to 2026-04-14
     python scripts/fetch_meta_ads.py --dry-run                # preview only
-    python scripts/fetch_meta_ads.py --days 14 --append --creatives  # weekly cron
+    python scripts/fetch_meta_ads.py --overwrite              # wipe + write window only
+    python scripts/fetch_meta_ads.py --days 14 --creatives    # weekly cron
 
-Run weekly: `python scripts/fetch_meta_ads.py --days 14 --append --creatives`
+Run weekly: `python scripts/fetch_meta_ads.py --days 14 --creatives`
 This refreshes both performance data AND creative images for currently-active ads.
 """
 from __future__ import annotations
@@ -38,6 +46,10 @@ BACKOFF_BASE = 1  # seconds
 
 BACKFILL_START_DATE = "2025-10-01"
 DEDUP_KEYS = ["reporting_starts", "ad_name"]
+
+# Meta returns HTTP 500 ("request too heavy") for wide date ranges. Fetch in
+# chunks no larger than this many days and stitch the results together.
+CHUNK_DAYS = 30
 
 CREATIVES_COLUMNS = [
     "ad_id", "ad_name", "effective_status", "object_type",
@@ -105,14 +117,18 @@ def parse_args() -> argparse.Namespace:
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
-        "--append", action="store_true",
-        help="Merge fetched rows into the existing CSV; dedupes on (reporting_starts, ad_name)",
+        "--overwrite", action="store_true",
+        help="Wipe the existing CSV and write only the fetched window (old behavior). "
+             "Default is to merge the window into the existing CSV.",
     )
     mode.add_argument(
         "--backfill", action="store_true",
         help=f"Fill in older data: pulls from {BACKFILL_START_DATE} up to the earliest "
-             f"date already in the CSV, then merges (implies --append)",
+             f"date already in the CSV, then merges",
     )
+    # Deprecated: merge is now the default, so --append is a no-op kept for
+    # backward compatibility with existing cron commands.
+    parser.add_argument("--append", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -156,12 +172,13 @@ def merge_with_existing(new_df: pd.DataFrame) -> tuple[pd.DataFrame, int, int]:
     Returns (final_df, dropped_duplicates, existing_row_count).
     """
     if not OUTPUT_PATH.exists():
-        return new_df, 0, 0
+        return new_df.sort_values(DEDUP_KEYS).reset_index(drop=True), 0, 0
 
     existing = pd.read_csv(OUTPUT_PATH)
     existing_count = len(existing)
     combined = pd.concat([existing, new_df], ignore_index=True)
-    deduped = combined.drop_duplicates(subset=DEDUP_KEYS, keep="last").reset_index(drop=True)
+    deduped = combined.drop_duplicates(subset=DEDUP_KEYS, keep="last")
+    deduped = deduped.sort_values(DEDUP_KEYS).reset_index(drop=True)
     dropped = len(combined) - len(deduped)
     return deduped, dropped, existing_count
 
@@ -230,6 +247,28 @@ def fetch_insights(ad_account_id: str, access_token: str, since: str, until: str
         params = {}
         page += 1
 
+    return rows
+
+
+def iter_date_chunks(since: str, until: str, chunk_days: int = CHUNK_DAYS):
+    """Yield consecutive, non-overlapping (since, until) sub-ranges of <= chunk_days."""
+    start = date.fromisoformat(since)
+    end = date.fromisoformat(until)
+    while start <= end:
+        chunk_end = min(start + timedelta(days=chunk_days - 1), end)
+        yield start.isoformat(), chunk_end.isoformat()
+        start = chunk_end + timedelta(days=1)
+
+
+def fetch_insights_chunked(
+    ad_account_id: str, access_token: str, since: str, until: str
+) -> list[dict]:
+    """Fetch [since, until] in <=CHUNK_DAYS chunks so wide ranges don't hit HTTP 500."""
+    rows: list[dict] = []
+    chunks = list(iter_date_chunks(since, until))
+    for i, (c_since, c_until) in enumerate(chunks, 1):
+        print(f"Chunk {i}/{len(chunks)}: {c_since} -> {c_until}")
+        rows.extend(fetch_insights(ad_account_id, access_token, c_since, c_until))
     return rows
 
 
@@ -437,14 +476,14 @@ def main() -> None:
         mode_label = "backfill (merge)"
     else:
         since, until = resolve_date_range(args)
-        mode_label = "append (merge)" if args.append else "overwrite"
+        mode_label = "overwrite" if args.overwrite else "merge"
 
     print(f"Fetching {since} -> {until}")
     print(f"Account: {ad_account_id}")
     print(f"Mode:    {mode_label}")
     print()
 
-    rows = fetch_insights(ad_account_id, access_token, since, until)
+    rows = fetch_insights_chunked(ad_account_id, access_token, since, until)
 
     if not rows:
         print("No insights returned for this date range.")
@@ -453,11 +492,12 @@ def main() -> None:
 
     new_df = build_dataframe(rows)
 
-    merging = args.append or args.backfill
+    merging = not args.overwrite  # merge is the default; --overwrite wipes
     if merging:
         final_df, dropped, existing_count = merge_with_existing(new_df)
     else:
-        final_df, dropped, existing_count = new_df, 0, 0
+        final_df = new_df.sort_values(DEDUP_KEYS).reset_index(drop=True)
+        dropped, existing_count = 0, 0
 
     if args.dry_run:
         print()
