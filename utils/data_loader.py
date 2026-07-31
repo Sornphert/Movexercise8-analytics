@@ -826,6 +826,7 @@ def calculate_ad_buyer_attribution(
     return merged.drop(columns="_key")
 
 
+@st.cache_data(ttl=300)
 def load_all() -> dict:
     leads = load_leads()
     purchases = load_purchases()
