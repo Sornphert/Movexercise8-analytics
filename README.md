@@ -74,6 +74,40 @@ python scripts/fetch_meta_ads.py [--creatives]       # Meta ad stats (+ creative
 
 The sidebar's **"Fetch new Zoom data"** button runs the Zoom script for you.
 
+## Operations — how the data flows
+
+There are three ways data gets refreshed. You rarely need to touch the scripts by hand.
+
+**1. Automated (nightly).** A GitHub Action (`.github/workflows/refresh-data.yml`) runs every
+day at **22:00 UTC (06:00 Malaysia)**. It runs all three fetch scripts, commits any changed
+files in `data/`, and pushes — which triggers a Streamlit Cloud redeploy with the fresh data.
+So on a normal day the dashboard updates itself with no one doing anything.
+
+- Each source is fetched independently: if one API fails, the others still commit.
+- If **any** fetch fails, the Action run is marked failed, so GitHub emails you — that's your
+  signal a token expired or an API changed.
+- You can also run it on demand: repo → **Actions** tab → **Refresh data** → **Run workflow**.
+- **Required setup (one-time):** add these as repo secrets under
+  *Settings → Secrets and variables → Actions*: `ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`,
+  `ZOOM_CLIENT_SECRET`, `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID`, `PURCHASES_SHEET_URL`
+  (and optionally `ZOOM_HOST_EMAIL`). Same values as the local `.env`.
+
+**2. Live-on-load.** Leads, purchases, and the e-book survey are pulled **live from Google
+Sheets** every time the dashboard loads (5-minute cache), so those three are always current
+regardless of the nightly job. The committed CSVs are only a fallback for when Sheets is
+unreachable.
+
+**3. Manual.** The sidebar **"Fetch new Zoom data"** button, or running any
+`scripts/fetch_*.py` locally, for an immediate one-off pull.
+
+**Still fully manual (not automated):** analyzing WhatsApp conversations into
+`data/objections.csv` (the Failed Leads tab), maintaining `data/email_aliases.csv`, and the
+optional Stripe-export upload on the Payments Due tab.
+
+**Checking freshness.** The sidebar's **"Data freshness"** panel shows the most recent data
+point per source and flags (⚠️) anything empty or more than 14 days stale — a quick way to
+confirm the pipeline is healthy.
+
 ## Deployment
 
 Hosted on **Streamlit Community Cloud**, deployed from the `main` branch of this repo.

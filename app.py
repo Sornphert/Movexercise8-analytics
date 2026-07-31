@@ -14,6 +14,7 @@ st.set_page_config(
 
 from sections import ad_spend_roi, ai_chat, ebook_survey, failed_leads, hot_list, lead_pipeline, overview, payments_due, sales_revenue, webinar_performance
 from utils.data_loader import load_all
+from utils.metrics import get_data_freshness
 from utils.styles import inject_css
 
 inject_css()
@@ -92,6 +93,22 @@ with st.sidebar:
     st.caption(f"**{len(data['objections'])}** objections")
     if "ebook" in data:
         st.caption(f"**{len(data['ebook'])}** e-book responses")
+
+    st.divider()
+    st.header("Data freshness")
+    st.caption("Most recent data point per source (ignores the date filter above).")
+    for f in get_data_freshness(_raw):
+        if f["latest_date"] is None:
+            st.caption(f"⚠️ **{f['label']}** — no data")
+            continue
+        if f["age_days"] == 0:
+            ago = "today"
+        elif f["age_days"] == 1:
+            ago = "1 day ago"
+        else:
+            ago = f"{f['age_days']} days ago"
+        icon = "⚠️ " if f["stale"] else ""
+        st.caption(f"{icon}**{f['label']}** — {f['latest_date']:%b %d} ({ago})")
 
     # Auto-load API key from secrets, allow sidebar override
     if "gemini_api_key" not in st.session_state:

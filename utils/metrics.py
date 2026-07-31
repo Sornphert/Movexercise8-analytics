@@ -2424,3 +2424,60 @@ def calculate_hot_list(
         .reset_index(drop=True)
     )
     return df[cols]
+
+
+# How many days a source can go without new data before we flag it as stale.
+# Deliberately generous so normal cadences (weekly webinars, 1-day ad-reporting
+# lag) don't trip a false alarm — a flag means "the pipeline is probably broken."
+_STALE_AFTER_DAYS = 14
+
+
+def get_data_freshness(raw: dict) -> list[dict]:
+    """Latest data point + age per source, computed from the UNFILTERED raw data
+    (so the sidebar date filter never changes what "fresh" means).
+
+    Returns one dict per source: {label, latest_date (date|None), age_days
+    (int|None), stale (bool)}. `latest_date is None` means the source is empty.
+    """
+    today = pd.Timestamp.today().normalize()
+
+    def _latest(series_or_values) -> pd.Timestamp | None:
+        ts = pd.to_datetime(pd.Series(list(series_or_values)), errors="coerce")
+        ts = ts.dropna()
+        return ts.max() if len(ts) else None
+
+    sources: list[tuple[str, pd.Timestamp | None]] = []
+
+    leads = raw.get("leads")
+    sources.append(("Leads", _latest(leads["date"]) if leads is not None and not leads.empty else None))
+
+    purchases = raw.get("purchases")
+    sources.append(("Purchases", _latest(purchases["date"]) if purchases is not None and not purchases.empty else None))
+
+    webinars = raw.get("webinars") or {}
+    sources.append(("Webinars", _latest(w["date"] for w in webinars.values()) if webinars else None))
+
+    meta = raw.get("meta")
+    sources.append(("Ad spend", _latest(meta["reporting_starts"]) if meta is not None and not meta.empty else None))
+
+    objections = raw.get("objections")
+    has_obj = objections is not None and not objections.empty and "_filter_date" in objections.columns
+    sources.append(("Failed leads", _latest(objections["_filter_date"]) if has_obj else None))
+
+    ebook = raw.get("ebook")
+    has_ebook = ebook is not None and not ebook.empty and "date" in ebook.columns
+    sources.append(("E-book survey", _latest(ebook["date"]) if has_ebook else None))
+
+    out: list[dict] = []
+    for label, latest in sources:
+        if latest is None:
+            out.append({"label": label, "latest_date": None, "age_days": None, "stale": True})
+        else:
+            age = int((today - latest.normalize()).days)
+            out.append({
+                "label": label,
+                "latest_date": latest.date(),
+                "age_days": age,
+                "stale": age > _STALE_AFTER_DAYS,
+            })
+    return out
