@@ -100,8 +100,6 @@ def _render_snapshot(event: dict, webinars: dict, purchases: pd.DataFrame):
     # Group A — Attendance (join-only, after zero-duration filter)
     day1_att = day1["unique_attendees"] if day1 else 0
     day2_att = day2["unique_attendees"] if day2 else 0
-    d1_peak = int(day1.get("peak_attendance", 0)) if day1 else 0
-    d2_peak = int(day2.get("peak_attendance", 0)) if day2 else 0
     both = len(cohorts["both_days"])
     d1_only = len(cohorts["day1_only"])
     d2_only = len(cohorts["day2_only"])

@@ -836,9 +836,6 @@ def build_monthly_cohorts(
     leads_c = leads.copy()
     leads_c["month"] = leads_c["date"].dt.to_period("M").astype(str)
 
-    purchase_emails = set(purchases["norm_email"].dropna())
-    purchase_phones = set(purchases["norm_phone"].dropna())
-
     # Build purchase lookup by email/phone → amount, payment_complete
     purchase_by_email: dict[str, dict] = {}
     purchase_by_phone: dict[str, dict] = {}

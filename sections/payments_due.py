@@ -3,7 +3,7 @@ import streamlit as st
 
 from utils.data_loader import load_all, load_email_aliases
 from utils.metrics import calculate_payments_due, reconcile_payments_with_stripe
-from utils.styles import COLORS, alert, metric_card, section_header
+from utils.styles import COLORS, metric_card, section_header
 
 _DISPLAY_RENAMES = {
     "name": "Name",
