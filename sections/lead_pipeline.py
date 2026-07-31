@@ -44,7 +44,7 @@ def _render_funnel_health(leads, purchases, webinars, objections):
     )
 
     cols = st.columns(len(health["transitions"]))
-    for col, t in zip(cols, health["transitions"]):
+    for col, t in zip(cols, health["transitions"], strict=False):
         with col:
             st.markdown(
                 metric_card(

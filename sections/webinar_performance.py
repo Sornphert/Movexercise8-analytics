@@ -115,7 +115,7 @@ def _render_snapshot(event: dict, webinars: dict, purchases: pd.DataFrame):
         ("Day 2 Only", d2_only),
         ("Total Unique", total),
     ]
-    for col, (label, val) in zip(cols, specs):
+    for col, (label, val) in zip(cols, specs, strict=False):
         with col:
             st.markdown(metric_card(label, str(val)), unsafe_allow_html=True)
 
@@ -134,7 +134,7 @@ def _render_snapshot(event: dict, webinars: dict, purchases: pd.DataFrame):
         ("Stayed 120+ — Day 1", f"{d1_stayed:.1f}%"),
         ("Stayed 120+ — Day 2", f"{d2_stayed:.1f}%" if day2 else "—"),
     ]
-    for col, (label, val) in zip(cols[:4], eng):
+    for col, (label, val) in zip(cols[:4], eng, strict=False):
         with col:
             st.markdown(metric_card(label, val), unsafe_allow_html=True)
 
@@ -194,7 +194,7 @@ def _render_snapshot(event: dict, webinars: dict, purchases: pd.DataFrame):
          f"{sales_d2} / {day2_att} Day 2 attendees" if day2 else ""),
         ("Day 2 Offer-time Conv", d2_offer_val, d2_offer_sub),
     ]
-    for col, (label, val, sub) in zip(row2, cards):
+    for col, (label, val, sub) in zip(row2, cards, strict=False):
         with col:
             st.markdown(metric_card(label, val, sub=sub), unsafe_allow_html=True)
 

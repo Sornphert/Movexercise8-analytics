@@ -33,7 +33,7 @@ def generate_insights(api_key: str, section: str, context: str) -> str:
             system_instruction=SYSTEM_PROMPT,
         ),
     )
-    return response.text
+    return response.text or "No response generated. Try again or rephrase."
 
 
 def chat_response(api_key: str, message: str, data_context: str, history: list) -> str:
@@ -64,7 +64,7 @@ def chat_response(api_key: str, message: str, data_context: str, history: list) 
         model=MODEL_NAME,
         contents=contents,
     )
-    return response.text
+    return response.text or "No response generated. Try again or rephrase."
 
 
 def build_data_summary(data: dict) -> str:
@@ -94,7 +94,7 @@ def build_data_summary(data: dict) -> str:
 
     # Webinars
     webinar_lines = []
-    for key, w in sorted(webinars.items()):
+    for _, w in sorted(webinars.items()):
         webinar_lines.append(
             f"  {w['date']}: {w['unique_attendees']} attendees, "
             f"avg {w['avg_duration']}min, {w['stayed_120plus_pct']}% stayed 120+min"

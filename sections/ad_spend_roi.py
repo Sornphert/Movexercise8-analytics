@@ -111,7 +111,7 @@ def _render_spend_snapshot(s: dict) -> None:
         ("ROAS (7d)", f"{s['roas']['value']:.2f}x", f"prev: {s['roas']['previous']:.2f}x",
          _ROAS_VARIANT[s["roas"]["health"]]),
     ]
-    for col, (l, v, sub, var) in zip(st.columns(5), cards):
+    for col, (l, v, sub, var) in zip(st.columns(5), cards, strict=False):
         with col: st.markdown(metric_card(l, v, sub, variant=var), unsafe_allow_html=True)
 
 
@@ -170,7 +170,7 @@ def _render_decision_panels(meta, attribution, purchases) -> None:
          "Allocate small budget to validate" if test_items
          else "ℹ️ No early-stage ads to evaluate", "y"),
     ]
-    for col, (title, items, foot, v) in zip(st.columns(3), panels):
+    for col, (title, items, foot, v) in zip(st.columns(3), panels, strict=False):
         with col: st.markdown(decision_panel(title, items, foot, v), unsafe_allow_html=True)
 
     if not kill_full.empty:
@@ -274,7 +274,7 @@ def _render_quality_rankings(meta) -> None:
         counts.columns = ["ranking", "count"]
         distributions[col] = counts
 
-    for (col, title), slot in zip(rankings, st.columns(3)):
+    for (col, title), slot in zip(rankings, st.columns(3), strict=False):
         with slot:
             counts = distributions[col]
             if col == "conversion_ranking" and len(counts) <= 1:
@@ -315,7 +315,7 @@ def _render_break_even_analysis(meta, purchases, attribution, leads, config) -> 
         ("UTM-Tracked Leads", f"{be['utm_tracked_leads']:,}",
          f"{be['utm_coverage_pct']}% of all leads · {be['attributed_buyers']} converted", ""),
     ]
-    for col, (l, v, sub, var) in zip(st.columns(3), cards):
+    for col, (l, v, sub, var) in zip(st.columns(3), cards, strict=False):
         with col: st.markdown(metric_card(l, v, sub, variant=var), unsafe_allow_html=True)
     st.markdown(alert(
         "This is a rough break-even calculation using sale price, not collected revenue. "
