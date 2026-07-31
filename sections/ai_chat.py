@@ -17,9 +17,10 @@ def render(data: dict) -> None:
         )
         return
 
-    # Build data context once per session
-    if "ai_data_context" not in st.session_state:
-        st.session_state["ai_data_context"] = build_data_summary(data)
+    # Rebuild the data context each render so the assistant always reflects the
+    # CURRENT sidebar date filter (caching it once per session made it answer from
+    # whatever filter was active on first open).
+    data_context = build_data_summary(data)
 
     # Initialize chat history
     if "ai_chat_history" not in st.session_state:
@@ -38,27 +39,29 @@ def render(data: dict) -> None:
             st.markdown(prompt)
 
         # Generate response
+        result = None
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 try:
                     result = chat_response(
                         api_key=api_key,
                         message=prompt,
-                        data_context=st.session_state["ai_data_context"],
+                        data_context=data_context,
                         history=st.session_state["ai_chat_history"],
                     )
                     st.markdown(result)
                 except Exception as e:
-                    result = f"Error: {e}"
-                    st.error(result)
+                    st.error(f"Error: {e}")
 
-        # Save to history
-        st.session_state["ai_chat_history"].append(
-            {"role": "user", "content": prompt}
-        )
-        st.session_state["ai_chat_history"].append(
-            {"role": "model", "content": result}
-        )
+        # Save to history only on success — a failed attempt shouldn't pollute the
+        # transcript or get re-sent as context (and would leave a dangling user turn).
+        if result is not None:
+            st.session_state["ai_chat_history"].append(
+                {"role": "user", "content": prompt}
+            )
+            st.session_state["ai_chat_history"].append(
+                {"role": "model", "content": result}
+            )
 
     # Clear chat button
     if st.session_state["ai_chat_history"]:

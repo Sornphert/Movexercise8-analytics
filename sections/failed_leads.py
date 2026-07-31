@@ -1,6 +1,7 @@
+import plotly.graph_objects as go
 import streamlit as st
 
-from utils.charts import bar_chart, horizontal_bar_chart, pie_chart
+from utils.charts import apply_standard_layout, bar_chart, horizontal_bar_chart, pie_chart
 from utils.metrics import (
     calculate_child_profile,
     calculate_objection_breakdown,
@@ -135,14 +136,12 @@ def render(data: dict):
                 "#95A5A6" if g == "Unknown" else COLORS["primary"]
                 for g in age_df["age_group"]
             ]
-            import plotly.graph_objects as go
             fig = go.Figure(go.Bar(
                 x=age_df["age_group"], y=age_df["count"],
                 marker_color=colors, text=age_df["count"],
                 textposition="outside",
             ))
             fig.update_layout(title_text="Child Age Distribution", xaxis_type="category")
-            from utils.charts import apply_standard_layout
             st.plotly_chart(
                 apply_standard_layout(fig),
                 use_container_width=True,

@@ -95,7 +95,8 @@ def render(data: dict):
     # ── Payment completion by status ──────────────────────────────
     st.markdown(section_header("Payment Completion by Status"), unsafe_allow_html=True)
 
-    for row in get_payment_completion_by_status(purchases):
+    completion = get_payment_completion_by_status(purchases)
+    for row in completion:
         st.text(f"{row['status']}: {row['complete']}/{row['total']} completed ({row['pct']}%)")
         st.progress(row["pct"] / 100)
 
@@ -112,7 +113,7 @@ def render(data: dict):
     # ── AI Insights ──────────────────────────────────────────────
     completion_lines = "\n".join(
         f"  {r['status']}: {r['complete']}/{r['total']} ({r['pct']}%)"
-        for r in get_payment_completion_by_status(purchases)
+        for r in completion
     )
     context = (
         f"Revenue: RM {rev['total_revenue']:,.0f} total, "
