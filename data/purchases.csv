@@ -175,3 +175,4 @@ date,name,email,phone,amount,status,payment_method,payment_complete,utm_campaign
 8/12/2026,SARINA,oked2504@gmail.com,010-220 3514,2688.0,Confirmed,EzBeli,True,,,
 8/12/2026,Judy Chong,,60 12-393 0300,2688.0,Confirmed,Stripe,True,,,
 8/12/2026,Rachel,,013-808 0783,200.0,Deposit,Bank,False,,,
+8/13/2026,Alan Tan,,60 19-822 8816,200.0,Deposit,Bank,False,,,
