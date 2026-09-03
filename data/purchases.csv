@@ -89,7 +89,7 @@ date,name,email,phone,amount,status,payment_method,payment_complete,utm_campaign
 2/27/2026,Chua Ling,impressionsjackie@yahoo.com,60 16-218 6535,2688.0,Confirmed,Cash,True,291025 My Daryl Movexercise8 Leads,051225 MY Daryl Movexercise8 LP-Ver2 Video 001,Pay at centre
 2/27/2026,Nisha,nissanthi.jegenathan@gmail.com,60 14-366 1175,200.0,Deposit,Bank,False,291025 My Daryl Movexercise8 Leads,291025 MY Daryl Movexercise8 LP-Ver1 Video 003,Deposit
 3/9/2026,Lim Mei San,sapphiresan@yahoo.com,60 12-335 3925,2688.0,Confirmed,Stripe,True,250226 My Daryl Movexercise8 Leads New,250226 MY Daryl Movexercise8 LP-Ver1 Video Script 007,
-3/9/2026,Cham Mei Yen,khadeemfamily@gmail.com,60 13-488 1844,458.0,Installment,Stripe,False,,,
+3/9/2026,Cham Mei Yen,khadeemfamily@gmail.com,60 13-488 1844,458.0,Installment,Stripe,True,,,
 3/10/2026,Y Physter Yvonne Peturos ,yphysteryvonne83@gmail.com,60 17-899 8302,1781.0,Confirmed,Bank,True,250226 My Daryl Movexercise8 Leads New,040326 MY Daryl Movexercise8 LP-Ver1 Image 011,paid RM907 on stripe
 3/10/2026,Falguni Joshi,falguni1020@outlook.com,60 16-410 0749,232.0,Installment,Stripe,False,250226 My Daryl Movexercise8 Leads New,250226 MY Daryl Movexercise8 LP-Ver1 Video Script 007,
 3/10/2026,Sue Ng,annesue.ng@hotmail.com,60 10-250 3303,2688.0,Confirmed,Stripe,True,,,
@@ -159,7 +159,7 @@ date,name,email,phone,amount,status,payment_method,payment_complete,utm_campaign
 7/2/2026,Vathsala,,60 12-217 0156,232.0,Installment,Stripe,False,,,
 7/8/2026,Michelle Yeap,,60 12-943 4097,2688.0,Confirmed,EzBeli,True,,,
 7/8/2026,Joan teresa pereira,,60 12-438 9260,458.0,Deposit,Bank,False,,,
-7/15/2026,Yeu Lai,,60 16-395 9269,907.0,Installment,Stripe,False,,,
+7/15/2026,Yeu Lai,,60 16-395 9269,907.0,Installment,Stripe,True,,,settled all on 2 Sept
 7/15/2026,SURINA BT ABDUL RAHIM,,60 12-792 2497,2688.0,Confirmed,Bank,True,,,
 7/16/2026,Thai Siew Bee,,60 13-397 0903,2688.0,Confirmed,EzBeli,True,,,
 7/16/2026,Danny C,,60 14-234 7099,458.0,Installment,Stripe,False,,,
