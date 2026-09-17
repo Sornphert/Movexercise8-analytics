@@ -180,10 +180,13 @@ date,name,email,phone,amount,status,payment_method,payment_complete,utm_campaign
 8/13/2026,Alan Tan,,60 19-822 8816,200.0,Deposit,Bank,False,,,
 8/19/2026,Ryan Keat,,60 16-497 1203,2688.0,Confirmed,EzBeli,True,,,
 8/19/2026,BADARIAH BINTI MOHAMED NOOR ,,60 13-347 0779,2688.0,Confirmed,Stripe,True,,,
-8/19/2026,Carine,rine89ye@gmail.com,60 14-323 6288,200.0,Deposit,Bank,False,,,want use Ambank instalment
+8/19/2026,Carine,rine89ye@gmail.com,60 14-323 6288,200.0,Deposit,Bank,False,,,refunded
 8/19/2026,Ho Chew Ngan,chewngan@gmail.com,60 12-343 7113,2688.0,Confirmed,EzBeli,True,,,
 8/26/2026,Doreen,,60 12-690 8703,2688.0,Confirmed,EzBeli,True,,,
 8/26/2026,Chin LF,,017-379 3995,2688.0,Confirmed,Fiuu,True,,,
 8/27/2026,Be Eng Ter,,65 8308 8923,2688.0,Confirmed,EzBeli,True,,,
 9/9/2026,Melissa,,60 17-438 8966,2688.0,Confirmed,Stripe,True,,,
 10/9/2026,Tessmine,,60 12-667 0270,2688.0,Confirmed,EzBeli,True,,,
+16/9/2026,Nor Shahidah ,,60 19-684 4995,2688.0,Confirmed,EzBeli,True,,,
+16/9/2026,Betty,,60 13-380 4091,232.0,Installment,Bank ,False,,,
+16/9/2026,Zen,,60 11-2610 9960,232.0,Installment,Stripe,False,,,
