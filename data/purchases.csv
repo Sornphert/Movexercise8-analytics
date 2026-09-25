@@ -193,3 +193,5 @@ date,name,email,phone,amount,status,payment_method,payment_complete,utm_campaign
 17/9/2026,Jasmine Yong,,@JasmineYH,2688.0,Confirmed,EzBeli,True,,,
 17/9/2026,Sanny Teoh,,60 12-420 3015,232.0,Installment,Stripe,False,,,
 17/9/2026,Pravena Nadaraja,,60 17-234 9858,2688.0,Confirmed,Stripe,True,,,
+23/9/2026,Stephanie Hoon ,,60 12-660 3588,232.0,Installment,Stripe,False,,,
+23/9/2026,Mellaine,,60 12-979 5207,2688.0,Confirmed,Stripe,True,,,
