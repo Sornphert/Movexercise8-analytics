@@ -195,3 +195,8 @@ date,name,email,phone,amount,status,payment_method,payment_complete,utm_campaign
 17/9/2026,Pravena Nadaraja,,60 17-234 9858,2688.0,Confirmed,Stripe,True,,,
 23/9/2026,Stephanie Hoon ,,60 12-660 3588,232.0,Installment,Stripe,False,,,
 23/9/2026,Mellaine,,60 12-979 5207,2688.0,Confirmed,Stripe,True,,,
+24/9/2026,Amutha sivalingam,,60 16-445 9874,232.0,Installment,Stripe,False,,,
+24/9/2026,Poh li,,60 18-872 2648,200.0,Deposit,Bank ,False,,,
+24/9/2026,Wani,,60 16-423 3215,232.0,Installment,Stripe,False,,,
+24/9/2026,LIM LEE SENG ,limleeseng@gmail.com,012-557 9869,2688.0,Confirmed,EzBeli,True,,,
+25/9/2026,As Linda,,60 12-462 1440,232.0,Installment,Bank,False,,,
