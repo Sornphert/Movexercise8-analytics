@@ -2659,14 +2659,14 @@ reporting_starts,reporting_ends,campaign_name,adset_name,ad_name,amount_spent,re
 2026-08-26,2026-08-26,170826 MY Daryl M8 LEADS Test,240826 MY Daryl M8 LEADS Test 021,240826 MY Daryl M8 Video 021,33.87,2.0,39.0,756.0,707.0,44.801587,-,-,-
 2026-08-26,2026-08-26,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,290726 MY Daryl M8 Video 011,12.41,2.0,26.0,429.0,401.0,28.927739,-,-,-
 2026-08-26,2026-08-26,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,300426 MY Daryl M8 Video Hook 007,0.94,,3.0,24.0,21.0,39.166667,-,-,-
-2026-08-27,2026-08-27,170826 MY Daryl M8 LEADS Test,170826 MY Daryl M8 LEADS Test 017,170826 MY Daryl M8 Video 017,38.29,1.0,48,957,886,40.010449,Below average - Bottom 35% of ads,Above average,Above average
-2026-08-27,2026-08-27,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,190826 MY Daryl M8 Video 017,237.49,18.0,333,7497,6372,31.678005,Below average - Bottom 35% of ads,Above average,Above average
-2026-08-27,2026-08-27,170826 MY Daryl M8 LEADS Test,240826 MY Daryl M8 LEADS Test 019,240826 MY Daryl M8 Video 019,30.5,3.0,33,950,857,32.105263,Below average - Bottom 35% of ads,Above average,Above average
-2026-08-27,2026-08-27,170826 MY Daryl M8 LEADS Test,240826 MY Daryl M8 LEADS Test 021,240826 MY Daryl M8 Video 021,25.17,1.0,29,694,609,36.268012,Below average - Bottom 35% of ads,Average,Above average
-2026-08-27,2026-08-27,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,280826 MY Daryl M8 Video 019,0.12,,1,3,3,40,-,-,-
-2026-08-27,2026-08-27,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,290726 MY Daryl M8 Video 011,23.22,,25,645,585,36,Below average - Bottom 35% of ads,Above average,Above average
-2026-08-27,2026-08-27,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,300426 MY Daryl M8 Retargeting 003,0.12,,0,4,3,30,-,-,-
-2026-08-27,2026-08-27,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,300426 MY Daryl M8 Video Hook 007,0.13,,0,5,5,26,-,-,-
+2026-08-27,2026-08-27,170826 MY Daryl M8 LEADS Test,170826 MY Daryl M8 LEADS Test 017,170826 MY Daryl M8 Video 017,38.29,1.0,48.0,957.0,886.0,40.010449,Below average - Bottom 35% of ads,Above average,Above average
+2026-08-27,2026-08-27,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,190826 MY Daryl M8 Video 017,237.49,18.0,333.0,7497.0,6372.0,31.678005,Below average - Bottom 35% of ads,Above average,Above average
+2026-08-27,2026-08-27,170826 MY Daryl M8 LEADS Test,240826 MY Daryl M8 LEADS Test 019,240826 MY Daryl M8 Video 019,30.5,3.0,33.0,950.0,857.0,32.105263,Below average - Bottom 35% of ads,Above average,Above average
+2026-08-27,2026-08-27,170826 MY Daryl M8 LEADS Test,240826 MY Daryl M8 LEADS Test 021,240826 MY Daryl M8 Video 021,25.17,1.0,29.0,694.0,609.0,36.268012,Below average - Bottom 35% of ads,Average,Above average
+2026-08-27,2026-08-27,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,280826 MY Daryl M8 Video 019,0.12,,1.0,3.0,3.0,40.0,-,-,-
+2026-08-27,2026-08-27,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,290726 MY Daryl M8 Video 011,23.22,,25.0,645.0,585.0,36.0,Below average - Bottom 35% of ads,Above average,Above average
+2026-08-27,2026-08-27,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,300426 MY Daryl M8 Retargeting 003,0.12,,0.0,4.0,3.0,30.0,-,-,-
+2026-08-27,2026-08-27,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,300426 MY Daryl M8 Video Hook 007,0.13,,0.0,5.0,5.0,26.0,-,-,-
 2026-08-28,2026-08-28,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,120826 MY Daryl M8 Video BRK 001 + M8 014,0.11,,0,5,5,22,-,-,-
 2026-08-28,2026-08-28,170826 MY Daryl M8 LEADS Test,170826 MY Daryl M8 LEADS Test 017,170826 MY Daryl M8 Video 017,35.42,1.0,46,1001,943,35.384615,Below average - Bottom 35% of ads,Above average,Above average
 2026-08-28,2026-08-28,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,190826 MY Daryl M8 Video 017,201.11,12.0,276,6134,5513,32.78611,Below average - Bottom 35% of ads,Above average,Above average
@@ -2922,12 +2922,12 @@ reporting_starts,reporting_ends,campaign_name,adset_name,ad_name,amount_spent,re
 2026-09-23,2026-09-23,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,060926 MY Daryl M8 Video 023,3.94,,7,164,144,24.02439,-,-,-
 2026-09-23,2026-09-23,120926 MY Daryl M8 DT LEADS,120926 MY Daryl M8 DT LEADS,120926 MY Daryl M8 LEADS Test Video 016,20.81,2.0,14,478,433,43.535565,-,-,-
 2026-09-23,2026-09-23,120926 MY Daryl M8 DT LEADS,120926 MY Daryl M8 DT LEADS,130926 MY Daryl M8 LEADS DT2 Image 017,11.95,,18,399,357,29.949875,-,-,-
-2026-09-23,2026-09-23,120926 MY Daryl M8 DT LEADS,120926 MY Daryl M8 DT LEADS,150926 MY Daryl M8 DT Video 022,18.22,,31,555,509,32.828829,-,-,-
+2026-09-23,2026-09-23,120926 MY Daryl M8 DT LEADS,120926 MY Daryl M8 DT LEADS,150926 MY Daryl M8 DT Video 022,18.22,,31,555,509,32.828829,Average,Above average,Above average
 2026-09-23,2026-09-23,170826 MY Daryl M8 LEADS Test,170826 MY Daryl M8 LEADS Test 017,170826 MY Daryl M8 Video 017,28.29,,36,853,806,33.165299,Average,Above average,Above average
-2026-09-23,2026-09-23,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,190826 MY Daryl M8 Video 017,181.06,9.0,233,5922,5299,30.57413,Below average - Bottom 35% of ads,Above average,Above average
+2026-09-23,2026-09-23,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,190826 MY Daryl M8 Video 017,181.06,9.0,233,5922,5299,30.57413,Average,Above average,Above average
 2026-09-23,2026-09-23,170826 MY Daryl M8 LEADS Test,240826 MY Daryl M8 LEADS Test 019,240826 MY Daryl M8 Video 019,21.86,3.0,40,1012,936,21.600791,Average,Above average,Above average
 2026-09-23,2026-09-23,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,280826 MY Daryl M8 Video 019,0.09,,0,5,5,18,-,-,-
-2026-09-23,2026-09-23,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,290726 MY Daryl M8 Video 011,22.8,1.0,33,915,852,24.918033,-,-,-
+2026-09-23,2026-09-23,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,290726 MY Daryl M8 Video 011,22.8,1.0,33,915,852,24.918033,Below average - Bottom 35% of ads,Above average,Above average
 2026-09-23,2026-09-23,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,300426 MY Daryl M8 Retargeting 003,0.91,,1,19,19,47.894737,-,-,-
 2026-09-23,2026-09-23,300426 MY Daryl M8 LEADS Andromeda,300426 MY Daryl M8 Leads,300426 MY Daryl M8 Video Hook 007,131.34,4.0,167,5117,4514,25.667383,-,-,-
 2026-09-24,2026-09-24,120926 MY Daryl M8 DT LEADS,120926 MY Daryl M8 DT LEADS,120926 MY Daryl M8 LEADS Test Video 016,0,,0,0,0,,-,-,-
